@@ -55,3 +55,7 @@ Documentation = "https://wiregraph.readthedocs.io"
 
 [tool.hatch.build.targets.wheel]
 packages = ["core_apps", "config"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.local"
+python_files = ["test_*.py"]

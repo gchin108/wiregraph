@@ -1,7 +1,7 @@
-import django
-from django.conf import settings
+import os
 
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
 
-def pytest_configure():
-    settings.DJANGO_SETTINGS_MODULE = "config.settings.local"
-    django.setup()
+import django  # noqa: E402
+
+django.setup()

@@ -1,0 +1,22 @@
+{
+  "signup": {
+    "email": "new.user@example.com",
+    "phone": "(415) 555-2671",
+    "password": "s3cret!"
+  },
+  "checkout": {
+    "order_id": "ORD-998877",
+    "card": "4111111111111111",
+    "billing_email": "billing@example.com",
+    "customer_ip": "192.168.10.42"
+  },
+  "profile": {
+    "name": "Jane Doe",
+    "email": "jane.doe@example.com",
+    "ssn_on_file": "123-45-6789"
+  },
+  "webhook": {
+    "source_ip": "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+    "actor_email": "ops@example.com"
+  }
+}

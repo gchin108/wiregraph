@@ -48,11 +48,13 @@ INSTALLED_APPS = [
 ]
 ```
 
-2. Add the detection middleware:
+2. Add the middleware (order matters — `JWTAuthMiddleware` must run before `PIIDetectionMiddleware` so JWT-authed requests resolve a tenant):
 
 ```python
 MIDDLEWARE = [
     # ...
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "core_apps.common.middleware.JWTAuthMiddleware",
     "core_apps.detection.middleware.PIIDetectionMiddleware",
 ]
 ```
@@ -78,6 +80,19 @@ WIREGRAPH = {
 ```bash
 python manage.py migrate
 ```
+
+## API
+
+All endpoints are versioned under `/api/v1/` and require a JWT `Bearer` token (obtain one via `/api/v1/auth/token/`). The OpenAPI schema is served at `/api/v1/schema/` and Swagger UI at `/api/v1/schema/docs/`.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/v1/auth/token/` | Obtain access + refresh token (throttled 5/min) |
+| POST | `/api/v1/auth/token/refresh/` | Rotate refresh token (throttled 5/min) |
+| GET | `/api/v1/detection/events/` | List detection events (filter: `direction`, `data_asset`, `endpoint`, `timestamp__gte`, `timestamp__lte`) |
+| GET | `/api/v1/detection/events/{id}/` | Retrieve a single event |
+| GET | `/api/v1/detection/assets/` | List PII categories seen in traffic |
+| GET | `/api/v1/detection/stats/summary/` | Dashboard counts by direction and asset |
 
 ## Requirements
 
