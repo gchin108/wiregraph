@@ -1,0 +1,152 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block branding %}
+  <h1 id="site-name"><a href="{% url 'admin:index' %}">{{ title }}</a></h1>
+{% endblock %}
+
+{% block content %}
+<div id="wiregraph-dashboard">
+  <style>
+    #wiregraph-dashboard .wg-filters {
+      display: flex; gap: 1rem; align-items: flex-end;
+      padding: 1rem 0; border-bottom: 1px solid var(--hairline-color, #eee);
+      margin-bottom: 1rem;
+    }
+    #wiregraph-dashboard label { display: flex; flex-direction: column; font-size: 0.85rem; }
+    #wiregraph-dashboard .wg-empty { padding: 2rem; color: #666; font-style: italic; }
+    #wiregraph-dashboard .wg-col-header {
+      font-weight: 600; font-size: 0.8rem; text-transform: uppercase;
+      fill: #555;
+    }
+    #wiregraph-dashboard .wg-node rect { cursor: pointer; }
+    #wiregraph-dashboard .wg-node text { font-size: 11px; pointer-events: none; }
+    #wiregraph-dashboard .wg-edge { fill: none; stroke: #417690; stroke-opacity: 0.45; }
+    #wiregraph-dashboard .wg-edge:hover { stroke-opacity: 0.9; }
+  </style>
+
+  <form method="get" class="wg-filters">
+    <label>Start
+      <input type="date" name="start" value="{{ start }}">
+    </label>
+    <label>End
+      <input type="date" name="end" value="{{ end }}">
+    </label>
+    <button type="submit" class="button">Apply</button>
+    <span style="margin-left:auto;color:#666;">
+      {{ graph.endpoints|length }} endpoints · {{ graph.assets|length }} PII types · {{ graph.services|length }} services
+    </span>
+  </form>
+
+  {% if not has_data %}
+    <div class="wg-empty">No PII flows observed in this date range. Generate traffic to populate the graph.</div>
+  {% else %}
+    <svg id="wg-graph" width="100%" height="600"></svg>
+  {% endif %}
+</div>
+
+{% if has_data %}
+{{ graph|json_script:"wg-graph-data" }}
+<script src="https://cdn.jsdelivr.net/npm/d3@7.8.5/dist/d3.min.js"></script>
+<script>
+  (function() {
+    const data = JSON.parse(document.getElementById("wg-graph-data").textContent);
+    const eventsBase = "{% url 'admin:detection_dataevent_changelist' %}";
+
+    const svg = d3.select("#wg-graph");
+    const width = svg.node().getBoundingClientRect().width;
+    const height = +svg.attr("height");
+    const colPad = 40;
+    const colWidth = (width - 2 * colPad) / 3;
+    const nodeW = Math.min(260, colWidth - 20);
+    const nodeH = 26;
+    const rowGap = 8;
+
+    const columns = [
+      { key: "endpoints", title: "Inbound Endpoints", x: colPad + colWidth * 0.5 },
+      { key: "assets", title: "PII Types", x: colPad + colWidth * 1.5 },
+      { key: "services", title: "External Services", x: colPad + colWidth * 2.5 },
+    ];
+
+    const positions = {};
+    columns.forEach(col => {
+      const items = data[col.key] || [];
+      const totalH = items.length * (nodeH + rowGap);
+      let y = Math.max(50, (height - totalH) / 2);
+      items.forEach(n => {
+        positions[n.id] = { x: col.x, y: y + nodeH / 2, label: n.label, count: n.count };
+        y += nodeH + rowGap;
+      });
+    });
+
+    // column headers
+    svg.selectAll(".wg-col-header")
+      .data(columns)
+      .enter()
+      .append("text")
+      .attr("class", "wg-col-header")
+      .attr("x", d => d.x)
+      .attr("y", 24)
+      .attr("text-anchor", "middle")
+      .text(d => d.title);
+
+    // edges
+    const maxW = Math.max(1, ...(data.edges || []).map(e => e.weight));
+    svg.append("g").selectAll("path.wg-edge")
+      .data(data.edges || [])
+      .enter()
+      .append("path")
+      .attr("class", "wg-edge")
+      .attr("stroke-width", e => 1 + (e.weight / maxW) * 5)
+      .attr("d", e => {
+        const s = positions[e.source], t = positions[e.target];
+        if (!s || !t) return "";
+        const sx = s.x + nodeW / 2, sy = s.y;
+        const tx = t.x - nodeW / 2, ty = t.y;
+        const mx = (sx + tx) / 2;
+        return `M${sx},${sy} C${mx},${sy} ${mx},${ty} ${tx},${ty}`;
+      })
+      .append("title")
+      .text(e => `${e.weight} event(s)`);
+
+    // nodes
+    const nodeG = svg.append("g");
+    columns.forEach(col => {
+      (data[col.key] || []).forEach(n => {
+        const p = positions[n.id];
+        const g = nodeG.append("g").attr("class", "wg-node")
+          .attr("transform", `translate(${p.x - nodeW / 2},${p.y - nodeH / 2})`);
+
+        const filterParam = col.key === "endpoints"
+          ? `endpoint=${encodeURIComponent(p.label)}`
+          : col.key === "assets"
+            ? `data_asset__name=${encodeURIComponent(n.id.split("::")[1])}`
+            : `external_service__domain=${encodeURIComponent(n.id.split("::")[1])}`;
+
+        g.append("a")
+          .attr("href", `${eventsBase}?${filterParam}`)
+          .append("rect")
+          .attr("width", nodeW).attr("height", nodeH)
+          .attr("rx", 4)
+          .attr("fill", col.key === "endpoints" ? "#e8f0fe"
+              : col.key === "assets" ? "#fdecea" : "#e6f4ea")
+          .attr("stroke", "#417690");
+
+        g.append("text")
+          .attr("x", 8).attr("y", nodeH / 2 + 4)
+          .text(p.label.length > 36 ? p.label.slice(0, 33) + "…" : p.label);
+
+        g.append("text")
+          .attr("x", nodeW - 8).attr("y", nodeH / 2 + 4)
+          .attr("text-anchor", "end")
+          .attr("fill", "#555")
+          .text(p.count);
+      });
+    });
+  })();
+</script>
+{% endif %}
+</div>
+{% endblock %}

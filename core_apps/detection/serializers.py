@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from core_apps.detection.models import DataAsset, DataEvent
+from core_apps.detection.models import AllowlistRule, DataAsset, DataEvent
 
 
 class DataAssetSerializer(serializers.ModelSerializer):
@@ -16,6 +16,20 @@ class DataAssetSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = fields
+
+
+class AllowlistRuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AllowlistRule
+        fields = [
+            "id",
+            "asset_name",
+            "endpoint_prefix",
+            "reason",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class DataEventSerializer(serializers.ModelSerializer):

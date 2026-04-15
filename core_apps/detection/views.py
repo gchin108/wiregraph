@@ -5,8 +5,13 @@ from rest_framework.views import APIView
 
 from core_apps.common.tenancy import resolve_tenant
 from core_apps.common.views import TenantScopedViewSet
-from core_apps.detection.models import DataAsset, DataEvent
-from core_apps.detection.serializers import DataAssetSerializer, DataEventSerializer
+from core_apps.detection.allowlist import invalidate_tenant_rules
+from core_apps.detection.models import AllowlistRule, DataAsset, DataEvent
+from core_apps.detection.serializers import (
+    AllowlistRuleSerializer,
+    DataAssetSerializer,
+    DataEventSerializer,
+)
 
 
 class DataEventViewSet(
@@ -43,6 +48,30 @@ class DataAssetViewSet(
 
     def get_queryset(self):
         return super().get_queryset().order_by("name")
+
+
+class AllowlistRuleViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.DestroyModelMixin,
+    TenantScopedViewSet,
+):
+    serializer_class = AllowlistRuleSerializer
+    queryset = AllowlistRule.objects.all()
+
+    def get_queryset(self):
+        return super().get_queryset().order_by("asset_name", "endpoint_prefix")
+
+    def perform_create(self, serializer):
+        tenant = self.get_tenant()
+        serializer.save(tenant=tenant)
+        invalidate_tenant_rules(tenant)
+
+    def perform_destroy(self, instance):
+        tenant = instance.tenant
+        instance.delete()
+        invalidate_tenant_rules(tenant)
 
 
 class SummaryStatsView(APIView):

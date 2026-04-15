@@ -7,3 +7,6 @@ class EgressConfig(AppConfig):
 
     def ready(self):
         import core_apps.egress.signals  # noqa: F401
+        from core_apps.egress.interceptor import install_egress_patch
+
+        install_egress_patch()

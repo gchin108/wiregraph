@@ -26,9 +26,15 @@ from core_apps.common.conf import (
     get_max_body_size,
     get_sampling_rate,
 )
-from core_apps.common.tenancy import resolve_tenant
+from core_apps.common.tenancy import (
+    reset_current_tenant,
+    resolve_tenant,
+    set_current_tenant,
+)
+from core_apps.detection.allowlist import filter_matches
 from core_apps.detection.models import DataAsset, DataEvent
 from core_apps.detection.regex_scanner import Match, RegexScanner, redact
+from core_apps.detection.signals import new_data_asset_discovered, pii_detected
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +55,17 @@ class PIIDetectionMiddleware:
     def __call__(self, request):
         skip_scan = self._should_skip(request)
 
+        token = None
         if not skip_scan:
             setattr(request, _REQUEST_ID_ATTR, uuid.uuid4().hex)
             self._scan_inbound(request)
+            token = set_current_tenant(resolve_tenant(request))
 
-        response = self.get_response(request)
+        try:
+            response = self.get_response(request)
+        finally:
+            if token is not None:
+                reset_current_tenant(token)
 
         if not skip_scan:
             self._scan_outbound(request, response)
@@ -125,6 +137,7 @@ class PIIDetectionMiddleware:
             endpoint=request.path,
             method=request.method or "",
             request_id=getattr(request, _REQUEST_ID_ATTR, ""),
+            request=request,
         )
 
     def _scan_outbound(self, request, response) -> None:
@@ -156,6 +169,7 @@ class PIIDetectionMiddleware:
             endpoint=request.path,
             method=request.method or "",
             request_id=getattr(request, _REQUEST_ID_ATTR, ""),
+            request=request,
         )
 
     # ------------------------------------------------------------------
@@ -171,12 +185,14 @@ class PIIDetectionMiddleware:
         endpoint: str,
         method: str,
         request_id: str,
+        request,
     ) -> None:
-        matches = list(matches)
+        matches = filter_matches(tenant, list(matches), endpoint)
         if not matches:
             return
 
         asset_cache: dict[str, DataAsset] = {}
+        new_assets: list[DataAsset] = []
         events: list[DataEvent] = []
         now = timezone.now()
 
@@ -184,12 +200,14 @@ class PIIDetectionMiddleware:
             for match in matches:
                 asset = asset_cache.get(match.asset_name)
                 if asset is None:
-                    asset, _ = DataAsset.objects.get_or_create(
+                    asset, created = DataAsset.objects.get_or_create(
                         tenant=tenant,
                         name=match.asset_name,
                         defaults={"label": match.asset_name.replace("_", " ").title()},
                     )
                     asset_cache[match.asset_name] = asset
+                    if created:
+                        new_assets.append(asset)
                 events.append(
                     DataEvent(
                         tenant=tenant,
@@ -204,4 +222,17 @@ class PIIDetectionMiddleware:
                         timestamp=now,
                     )
                 )
-            DataEvent.objects.bulk_create(events)
+            created_events = DataEvent.objects.bulk_create(events)
+
+        for asset in new_assets:
+            new_data_asset_discovered.send(
+                sender=DataAsset,
+                data_asset=asset,
+                tenant=tenant,
+            )
+        for event in created_events:
+            pii_detected.send(
+                sender=DataEvent,
+                data_event=event,
+                request=request,
+            )

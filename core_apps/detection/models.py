@@ -66,3 +66,32 @@ class DataEvent(TenantScopedModel):
 
     def __str__(self):
         return f"{self.data_asset} — {self.direction} @ {self.endpoint}"
+
+
+class AllowlistRule(TenantScopedModel):
+    asset_name = models.CharField(
+        max_length=255,
+        help_text="DataAsset.name to suppress, e.g. 'email'. Must match a detector asset name.",
+    )
+    endpoint_prefix = models.CharField(
+        max_length=2048,
+        blank=True,
+        help_text="Optional endpoint path prefix. Empty string matches all endpoints.",
+    )
+    reason = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Human-readable rationale, e.g. 'Login form — email is expected'.",
+    )
+
+    class Meta(TenantScopedModel.Meta):
+        unique_together = [("tenant", "asset_name", "endpoint_prefix")]
+        verbose_name = "Allowlist Rule"
+        verbose_name_plural = "Allowlist Rules"
+        indexes = [
+            models.Index(fields=["tenant", "asset_name"]),
+        ]
+
+    def __str__(self):
+        scope = self.endpoint_prefix or "*"
+        return f"{self.asset_name} @ {scope}"
