@@ -1,6 +1,9 @@
+from typing import TypedDict
+
 from django.conf import settings
 
 DEFAULTS = {
+    "ENABLED": False,
     "ENABLE_PRESIDIO": False,
     "ENABLE_EGRESS_TRACKING": False,
     "DISABLE_EGRESS_PATCHING": False,
@@ -11,12 +14,38 @@ DEFAULTS = {
     "SAMPLING_RATE": 1.0,
     "MAX_BODY_SIZE": 1_048_576,
     "EXCLUDED_PATHS": [],
+    "TENANT_RESOLVER": "wiregraph.resolvers.default",
+    "TENANT_MODEL": "tenants.Tenant",
+    "DISABLE_BUILTIN_ALERTS": False,
+    "ADMIN_SITE": "django.contrib.admin.site",
 }
+
+
+class WiregraphSettings(TypedDict, total=False):
+    ENABLED: bool
+    ENABLE_PRESIDIO: bool
+    ENABLE_EGRESS_TRACKING: bool
+    DISABLE_EGRESS_PATCHING: bool
+    DATA_RETENTION_DAYS: int
+    REDACT_STRATEGY: str
+    ALERT_WEBHOOK_URL: str | None
+    ALLOWLISTED_FIELDS: list[str]
+    SAMPLING_RATE: float
+    MAX_BODY_SIZE: int
+    EXCLUDED_PATHS: list[str]
+    TENANT_RESOLVER: str
+    TENANT_MODEL: str
+    DISABLE_BUILTIN_ALERTS: bool
+    ADMIN_SITE: str
 
 
 def get_config(key):
     user_conf = getattr(settings, "WIREGRAPH", {})
     return user_conf.get(key, DEFAULTS[key])
+
+
+def is_enabled() -> bool:
+    return bool(get_config("ENABLED"))
 
 
 def get_sampling_rate() -> float:

@@ -41,16 +41,9 @@ def resolve_tenant(request: "HttpRequest") -> "Tenant | None":
 
 
 def _lookup_tenant(request: "HttpRequest") -> "Tenant | None":
-    user = getattr(request, "user", None)
-    if user is None or not getattr(user, "is_authenticated", False):
-        return None
+    from wiregraph.resolvers import load_configured
 
-    membership = (
-        user.tenant_memberships.select_related("tenant").order_by("created_at").first()
-    )
-    if membership is None:
-        return None
-    return membership.tenant
+    return load_configured()(request)
 
 
 def get_current_tenant() -> "Tenant | None":

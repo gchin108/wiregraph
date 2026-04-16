@@ -29,6 +29,8 @@ DJANGO_APPS = [
     "django.contrib.staticfiles",
 ]
 
+import wiregraph
+
 THIRD_PARTY_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
@@ -37,21 +39,14 @@ THIRD_PARTY_APPS = [
     "drf_spectacular",
 ]
 
-LOCAL_APPS = [
-    "core_apps.common",
-    "core_apps.tenants",
-    "core_apps.detection",
-    "core_apps.egress",
-    "core_apps.reporting",
-]
-
-INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
+INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + [*wiregraph.INSTALLED_APPS]
 
 # ---------------------------------------------------------------------------
 # Middleware
 # ---------------------------------------------------------------------------
 
-MIDDLEWARE = [
+# instead of manually placed middleware, we use wiregraph.setup to ensure correct ordering of JWTAuthMiddleware and PIIDetectionMiddleware
+MIDDLEWARE = wiregraph.setup([ 
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -60,9 +55,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "core_apps.common.middleware.JWTAuthMiddleware",
-    "core_apps.detection.middleware.PIIDetectionMiddleware",
-]
+])
 
 ROOT_URLCONF = "config.urls"
 
@@ -205,14 +198,5 @@ CELERY_TIMEZONE = "UTC"
 # ---------------------------------------------------------------------------
 
 WIREGRAPH = {
-    "ENABLE_PRESIDIO": False,
-    "ENABLE_EGRESS_TRACKING": False,
-    "DISABLE_EGRESS_PATCHING": False,
-    "DATA_RETENTION_DAYS": 90,
-    "REDACT_STRATEGY": "hash",
-    "ALERT_WEBHOOK_URL": None,
-    "ALLOWLISTED_FIELDS": [],
-    "SAMPLING_RATE": 1.0,
-    "MAX_BODY_SIZE": 1_048_576,
-    "EXCLUDED_PATHS": [],
+    "ENABLED": True,
 }

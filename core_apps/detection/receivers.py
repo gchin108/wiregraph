@@ -26,6 +26,8 @@ _WEBHOOK_TIMEOUT = 5  # seconds
 
 
 def _post_alert(text: str) -> None:
+    if get_config("DISABLE_BUILTIN_ALERTS"):
+        return
     url = get_config("ALERT_WEBHOOK_URL")
     if not url:
         return

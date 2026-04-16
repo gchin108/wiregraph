@@ -35,43 +35,51 @@ pip install wiregraph[all]
 
 ## Quick start
 
-1. Add the Wiregraph apps to `INSTALLED_APPS`:
+1. Add the Wiregraph apps to `INSTALLED_APPS` — spread the bundled list:
 
 ```python
+import wiregraph
+
 INSTALLED_APPS = [
-    # ...
-    "core_apps.common",
-    "core_apps.tenants",
-    "core_apps.detection",
-    "core_apps.egress",
-    "core_apps.reporting",
+    # ... your apps ...
+    *wiregraph.INSTALLED_APPS,
 ]
 ```
 
-2. Add the middleware (order matters — `JWTAuthMiddleware` must run before `PIIDetectionMiddleware` so JWT-authed requests resolve a tenant):
+2. Install the middleware with one call — `wiregraph.setup()` inserts both entries at the correct positions (idempotent):
 
 ```python
-MIDDLEWARE = [
-    # ...
+import wiregraph
+
+MIDDLEWARE = wiregraph.setup([
+    # ... your existing middleware ...
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "core_apps.common.middleware.JWTAuthMiddleware",
-    "core_apps.detection.middleware.PIIDetectionMiddleware",
-]
+])
 ```
 
-3. Configure Wiregraph in your settings:
+Prefer wiring it manually? Keep `JWTAuthMiddleware` before `PIIDetectionMiddleware`, both after `AuthenticationMiddleware`.
+
+3. Configure Wiregraph in your settings. Only `ENABLED` is required — every other key has a sensible default:
 
 ```python
 WIREGRAPH = {
-    "ENABLE_PRESIDIO": False,          # Use ML-based detection (requires presidio extra)
-    "ENABLE_EGRESS_TRACKING": False,   # Monitor outbound third-party calls
-    "DATA_RETENTION_DAYS": 90,         # How long to keep detection events
-    "REDACT_STRATEGY": "hash",         # "hash", "mask", or "truncate"
-    "SAMPLING_RATE": 1.0,              # 1.0 = scan every request, 0.1 = 10%
-    "MAX_BODY_SIZE": 1_048_576,        # Skip bodies larger than 1MB
-    "EXCLUDED_PATHS": [],              # Paths to skip (e.g., ["/health/"])
-    "ALLOWLISTED_FIELDS": [],          # Field names to ignore
-    "ALERT_WEBHOOK_URL": None,         # POST alerts to this URL
+    "ENABLED": True,
+}
+```
+
+See [docs/settings.md](docs/settings.md) for all available keys, types, and defaults.
+
+**Custom tenant resolution.** By default Wiregraph walks `request.user.tenant_memberships` to find the active tenant. If your project stores tenancy differently (FK on the user, subdomain, gateway header, etc.), point `WIREGRAPH["TENANT_RESOLVER"]` at your own callable:
+
+```python
+# myapp/tenancy.py
+def resolve(request):
+    return getattr(request.user, "active_tenant", None)
+
+# settings.py
+WIREGRAPH = {
+    "ENABLED": True,
+    "TENANT_RESOLVER": "myapp.tenancy.resolve",
 }
 ```
 
@@ -79,6 +87,39 @@ WIREGRAPH = {
 
 ```bash
 python manage.py migrate
+```
+
+## Scheduled retention purge
+
+Delete events older than `DATA_RETENTION_DAYS` on a schedule.
+
+Via cron / systemd:
+
+```bash
+python manage.py wiregraph_purge [--dry-run] [--batch-size N]
+```
+
+Check your configuration any time with the built-in doctor:
+
+```bash
+python manage.py wiregraph_doctor
+```
+
+Or scaffold a minimal config block into an existing settings file:
+
+```bash
+python manage.py wiregraph_init --settings-file config/settings.py
+```
+
+Via Celery Beat:
+
+```python
+import wiregraph.celery as wg_celery
+
+CELERY_BEAT_SCHEDULE = {
+    **wg_celery.schedule(hour=3, minute=0),
+    # ... your other scheduled tasks ...
+}
 ```
 
 ## API
