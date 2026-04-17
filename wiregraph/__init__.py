@@ -29,15 +29,15 @@ __all__ = [
 
 def __getattr__(name: str):
     if name == "JWTAuthMiddleware":
-        from core_apps.common.middleware import JWTAuthMiddleware
+        from wiregraph_apps.common.middleware import JWTAuthMiddleware
 
         return JWTAuthMiddleware
     if name == "PIIDetectionMiddleware":
-        from core_apps.detection.middleware import PIIDetectionMiddleware
+        from wiregraph_apps.detection.middleware import PIIDetectionMiddleware
 
         return PIIDetectionMiddleware
     if name == "WiregraphSettings":
-        from core_apps.common.conf import WiregraphSettings
+        from wiregraph_apps.common.conf import WiregraphSettings
 
         return WiregraphSettings
     if name == "resolvers":

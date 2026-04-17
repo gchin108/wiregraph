@@ -6,11 +6,11 @@ import pytest
 import requests
 from requests.models import PreparedRequest, Response
 
-from core_apps.common.tenancy import reset_current_tenant, set_current_tenant
-from core_apps.detection.models import DataEvent
-from core_apps.egress import interceptor
-from core_apps.egress.models import ExternalService
-from core_apps.egress.signals import egress_pii_leak
+from wiregraph_apps.common.tenancy import reset_current_tenant, set_current_tenant
+from wiregraph_apps.detection.models import DataEvent
+from wiregraph_apps.egress import interceptor
+from wiregraph_apps.egress.models import ExternalService
+from wiregraph_apps.egress.signals import egress_pii_leak
 from tests.fixtures.factories import TenantFactory
 
 

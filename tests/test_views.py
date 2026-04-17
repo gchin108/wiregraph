@@ -2,7 +2,7 @@ import pytest
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from core_apps.detection.models import DataAsset
+from wiregraph_apps.detection.models import DataAsset
 from tests.fixtures.factories import (
     DataAssetFactory,
     DataEventFactory,

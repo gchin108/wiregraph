@@ -3,9 +3,9 @@ import json
 import pytest
 from django.test import RequestFactory
 
-from core_apps.detection.middleware import PIIDetectionMiddleware
-from core_apps.detection.models import DataAsset, DataEvent
-from core_apps.detection.signals import new_data_asset_discovered, pii_detected
+from wiregraph_apps.detection.middleware import PIIDetectionMiddleware
+from wiregraph_apps.detection.models import DataAsset, DataEvent
+from wiregraph_apps.detection.signals import new_data_asset_discovered, pii_detected
 from tests.fixtures.factories import TenantMembershipFactory
 
 

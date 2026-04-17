@@ -1,6 +1,6 @@
 from django.test import override_settings
 
-from core_apps.common.conf import DEFAULTS, get_config, is_enabled
+from wiregraph_apps.common.conf import DEFAULTS, get_config, is_enabled
 
 
 def test_defaults_returned_when_unset():

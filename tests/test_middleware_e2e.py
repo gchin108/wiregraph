@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.urls import path
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from core_apps.detection.models import DataEvent
+from wiregraph_apps.detection.models import DataEvent
 from tests.fixtures.factories import TenantMembershipFactory
 
 

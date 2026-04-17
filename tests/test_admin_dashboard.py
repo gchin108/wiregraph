@@ -2,7 +2,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.test import Client
 
-from core_apps.egress.models import ExternalService
+from wiregraph_apps.egress.models import ExternalService
 from tests.fixtures.factories import (
     DataAssetFactory,
     DataEventFactory,

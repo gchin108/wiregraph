@@ -17,9 +17,9 @@ before the apps that reference their models.
 from __future__ import annotations
 
 INSTALLED_APPS: list[str] = [
-    "core_apps.common",
-    "core_apps.tenants",
-    "core_apps.detection",
-    "core_apps.egress",
-    "core_apps.reporting",
+    "wiregraph_apps.common",
+    "wiregraph_apps.tenants",
+    "wiregraph_apps.detection",
+    "wiregraph_apps.egress",
+    "wiregraph_apps.reporting",
 ]

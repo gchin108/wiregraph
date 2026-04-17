@@ -123,7 +123,7 @@ What it does:
 **Recursion safety** — internal traffic (your own alert webhooks) should not be re-intercepted:
 
 ```python
-from core_apps.egress.interceptor import mark_internal_call
+from wiregraph_apps.egress.interceptor import mark_internal_call
 with mark_internal_call():
     requests.post("https://my-own-webhook.internal/alert", json={...})
 ```
@@ -149,7 +149,7 @@ POST /api/v1/detection/allowlist-rules/
 - `endpoint_prefix` — URL prefix; `"*"` for all endpoints.
 - `reason` — required for audit.
 
-Cache invalidation is automatic when rules change via the API. If you mutate rules directly in the DB, call `invalidate_tenant_rules(tenant)` from `core_apps.detection.allowlist`.
+Cache invalidation is automatic when rules change via the API. If you mutate rules directly in the DB, call `invalidate_tenant_rules(tenant)` from `wiregraph_apps.detection.allowlist`.
 
 ### Signal handlers
 
@@ -163,7 +163,7 @@ Three signals are emitted:
 
 ```python
 from django.dispatch import receiver
-from core_apps.egress.signals import egress_pii_leak
+from wiregraph_apps.egress.signals import egress_pii_leak
 
 @receiver(egress_pii_leak)
 def alert(sender, data_event, external_service, **kwargs):
@@ -218,7 +218,7 @@ CELERY_BEAT_SCHEDULE = {
 }
 ```
 
-The task `wiregraph.celery.purge_expired_events` is registered automatically when `core_apps.reporting` loads, provided Celery is installed.
+The task `wiregraph.celery.purge_expired_events` is registered automatically when `wiregraph_apps.reporting` loads, provided Celery is installed.
 
 ### Custom AdminSite
 
@@ -273,13 +273,13 @@ Run `python manage.py wiregraph_doctor` first — it checks five common misconfi
 | Concern | File |
 |---|---|
 | Public API (`setup`, `INSTALLED_APPS`, `resolvers`) | `wiregraph/` |
-| Inbound/outbound middleware | `core_apps/detection/middleware.py` |
-| Egress interceptor | `core_apps/egress/interceptor.py` |
-| Settings resolution | `core_apps/common/conf.py` |
-| Tenant resolution | `core_apps/common/tenancy.py`, `wiregraph/resolvers.py` |
-| Signals | `core_apps/detection/signals.py`, `core_apps/egress/signals.py` |
-| Allowlist | `core_apps/detection/allowlist.py` |
-| Admin dashboard | `core_apps/common/admin_views.py`, `core_apps/common/templates/admin/wiregraph/dashboard.html` |
-| Management commands | `core_apps/common/management/commands/`, `core_apps/reporting/management/commands/` |
-| Purge core | `core_apps/reporting/purge.py` |
+| Inbound/outbound middleware | `wiregraph_apps/detection/middleware.py` |
+| Egress interceptor | `wiregraph_apps/egress/interceptor.py` |
+| Settings resolution | `wiregraph_apps/common/conf.py` |
+| Tenant resolution | `wiregraph_apps/common/tenancy.py`, `wiregraph/resolvers.py` |
+| Signals | `wiregraph_apps/detection/signals.py`, `wiregraph_apps/egress/signals.py` |
+| Allowlist | `wiregraph_apps/detection/allowlist.py` |
+| Admin dashboard | `wiregraph_apps/common/admin_views.py`, `wiregraph_apps/common/templates/admin/wiregraph/dashboard.html` |
+| Management commands | `wiregraph_apps/common/management/commands/`, `wiregraph_apps/reporting/management/commands/` |
+| Purge core | `wiregraph_apps/reporting/purge.py` |
 | Celery task + schedule helper | `wiregraph/celery.py` |

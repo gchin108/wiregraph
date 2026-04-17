@@ -13,7 +13,7 @@ WIREGRAPH = {
 For IDE completion, the `WiregraphSettings` TypedDict is exported:
 
 ```python
-from core_apps.common.conf import WiregraphSettings
+from wiregraph_apps.common.conf import WiregraphSettings
 
 WIREGRAPH: WiregraphSettings = {
     "ENABLED": True,

@@ -46,7 +46,7 @@ def test_schedule_raises_without_celery(monkeypatch):
 
 def test_reporting_apps_ready_tolerates_missing_celery(monkeypatch):
     """``ReportingConfig.ready()`` must not crash if the celery import fails."""
-    from core_apps.reporting.apps import ReportingConfig
+    from wiregraph_apps.reporting.apps import ReportingConfig
 
     # Pretend wiregraph.celery can't be imported
     real_import = __builtins__["__import__"] if isinstance(__builtins__, dict) else __builtins__.__import__

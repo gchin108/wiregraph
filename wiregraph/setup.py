@@ -12,8 +12,8 @@ is a no-op with respect to that entry and will still normalize ordering.
 from __future__ import annotations
 
 DJANGO_AUTH = "django.contrib.auth.middleware.AuthenticationMiddleware"
-JWT_AUTH = "core_apps.common.middleware.JWTAuthMiddleware"
-PII_DETECTION = "core_apps.detection.middleware.PIIDetectionMiddleware"
+JWT_AUTH = "wiregraph_apps.common.middleware.JWTAuthMiddleware"
+PII_DETECTION = "wiregraph_apps.detection.middleware.PIIDetectionMiddleware"
 
 
 def setup(middleware: list[str]) -> list[str]:

@@ -10,7 +10,7 @@ constructed ``AdminSite`` and verify the URL is present.
 from django.contrib.admin import AdminSite
 from django.test import override_settings
 
-from core_apps.common.apps import CommonConfig
+from wiregraph_apps.common.apps import CommonConfig
 
 
 class _CustomAdminSite(AdminSite):

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from core_apps.detection.regex_scanner import RegexScanner
+from wiregraph_apps.detection.regex_scanner import RegexScanner
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "payloads.json"

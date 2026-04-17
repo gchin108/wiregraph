@@ -2,13 +2,13 @@ import pytest
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from core_apps.detection.allowlist import (
+from wiregraph_apps.detection.allowlist import (
     filter_matches,
     invalidate_tenant_rules,
     is_allowlisted,
 )
-from core_apps.detection.models import AllowlistRule
-from core_apps.detection.regex_scanner import Match
+from wiregraph_apps.detection.models import AllowlistRule
+from wiregraph_apps.detection.regex_scanner import Match
 from tests.fixtures.factories import TenantFactory, TenantMembershipFactory
 
 

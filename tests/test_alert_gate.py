@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from django.test import override_settings
 
-from core_apps.detection.receivers import _post_alert
+from wiregraph_apps.detection.receivers import _post_alert
 
 
 @override_settings(WIREGRAPH={"ENABLED": True, "ALERT_WEBHOOK_URL": "https://hooks.example.com/x"})

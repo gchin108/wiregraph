@@ -124,7 +124,7 @@ class TestEgressWithResponses:
 
     @pytest.fixture
     def tenant_ctx(self, tenant):
-        from core_apps.common.tenancy import reset_current_tenant, set_current_tenant
+        from wiregraph_apps.common.tenancy import reset_current_tenant, set_current_tenant
 
         token = set_current_tenant(tenant)
         try:
@@ -134,7 +134,7 @@ class TestEgressWithResponses:
 
     @pytest.fixture
     def egress_enabled(self, settings, mock_responses):
-        from core_apps.egress import interceptor
+        from wiregraph_apps.egress import interceptor
 
         settings.WIREGRAPH = {
             "ENABLE_EGRESS_TRACKING": True,
@@ -147,8 +147,8 @@ class TestEgressWithResponses:
             interceptor.uninstall_egress_patch()
 
     def test_egress_detects_pii_in_openai_call(self, tenant_ctx, egress_enabled):
-        from core_apps.detection.models import DataEvent
-        from core_apps.egress.models import ExternalService
+        from wiregraph_apps.detection.models import DataEvent
+        from wiregraph_apps.egress.models import ExternalService
 
         egress_enabled.post(
             "https://api.openai.com/v1/chat/completions",
@@ -173,8 +173,8 @@ class TestEgressWithResponses:
         assert events.first().data_asset.name == "email"
 
     def test_no_pii_no_event(self, tenant_ctx, egress_enabled):
-        from core_apps.detection.models import DataEvent
-        from core_apps.egress.models import ExternalService
+        from wiregraph_apps.detection.models import DataEvent
+        from wiregraph_apps.egress.models import ExternalService
 
         egress_enabled.post(
             "https://api.openai.com/v1/chat/completions",

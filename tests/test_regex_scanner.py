@@ -1,6 +1,6 @@
 import pytest
 
-from core_apps.detection.regex_scanner import RegexScanner, _luhn_valid, redact
+from wiregraph_apps.detection.regex_scanner import RegexScanner, _luhn_valid, redact
 from tests.fixtures.pii_samples import SAMPLES
 
 

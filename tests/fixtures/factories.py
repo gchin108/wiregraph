@@ -1,8 +1,8 @@
 import factory
 from django.contrib.auth import get_user_model
 
-from core_apps.detection.models import DataAsset, DataEvent
-from core_apps.tenants.models import Tenant, TenantMembership
+from wiregraph_apps.detection.models import DataAsset, DataEvent
+from wiregraph_apps.tenants.models import Tenant, TenantMembership
 
 
 class TenantFactory(factory.django.DjangoModelFactory):

@@ -3,8 +3,8 @@ from datetime import timedelta
 import pytest
 from django.utils import timezone
 
-from core_apps.detection.models import DataEvent
-from core_apps.reporting.purge import purge_expired_events
+from wiregraph_apps.detection.models import DataEvent
+from wiregraph_apps.reporting.purge import purge_expired_events
 from tests.fixtures.factories import DataEventFactory
 
 pytestmark = pytest.mark.django_db

@@ -23,7 +23,7 @@ from django.utils.module_loading import import_string
 if TYPE_CHECKING:
     from django.http import HttpRequest
 
-    from core_apps.tenants.models import Tenant
+    from wiregraph_apps.tenants.models import Tenant
 
 
 TenantResolver = Callable[["HttpRequest"], Optional["Tenant"]]
@@ -59,7 +59,7 @@ def load_configured() -> TenantResolver:
 
     # Local import to keep this module importable before Django app registry
     # is ready (e.g. during ``manage.py`` startup).
-    from core_apps.common.conf import get_config
+    from wiregraph_apps.common.conf import get_config
 
     dotted = get_config("TENANT_RESOLVER")
     _cached_resolver = import_string(dotted)

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core_apps.reporting.purge import purge_expired_events as _purge_core
+from wiregraph_apps.reporting.purge import purge_expired_events as _purge_core
 
 TASK_NAME = "wiregraph.celery.purge_expired_events"
 

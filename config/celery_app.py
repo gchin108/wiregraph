@@ -6,4 +6,4 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
 app = Celery("wiregraph")
 app.config_from_object("django.conf:settings", namespace="CELERY")
-app.autodiscover_tasks(["core_apps.detection", "core_apps.egress", "core_apps.reporting"])
+app.autodiscover_tasks(["wiregraph_apps.detection", "wiregraph_apps.egress", "wiregraph_apps.reporting"])

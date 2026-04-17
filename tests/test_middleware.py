@@ -4,8 +4,8 @@ import pytest
 from django.http import JsonResponse
 from django.test import RequestFactory
 
-from core_apps.detection.middleware import PIIDetectionMiddleware
-from core_apps.detection.models import DataEvent
+from wiregraph_apps.detection.middleware import PIIDetectionMiddleware
+from wiregraph_apps.detection.models import DataEvent
 from tests.fixtures.factories import TenantMembershipFactory, UserFactory
 
 
