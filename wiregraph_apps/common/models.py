@@ -20,7 +20,7 @@ class TenantScopedManager(models.Manager):
 
 class TenantScopedModel(TimeStampedModel):
     tenant = models.ForeignKey(
-        "tenants.Tenant",
+        "wiregraph_tenants.Tenant",
         on_delete=models.CASCADE,
         related_name="%(class)s_set",
     )

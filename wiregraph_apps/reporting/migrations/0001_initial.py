@@ -10,9 +10,9 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('detection', '0001_initial'),
-        ('egress', '0001_initial'),
-        ('tenants', '0001_initial'),
+        ('wiregraph_detection', '0001_initial'),
+        ('wiregraph_egress', '0001_initial'),
+        ('wiregraph_tenants', '0001_initial'),
     ]
 
     operations = [
@@ -27,9 +27,9 @@ class Migration(migrations.Migration):
                 ('legal_basis', models.CharField(blank=True, help_text='GDPR Article 6 legal basis — user-enriched', max_length=255)),
                 ('retention_period', models.CharField(blank=True, help_text='Data retention period — user-enriched', max_length=255)),
                 ('dpo_contact', models.CharField(blank=True, help_text='Data Protection Officer contact — user-enriched', max_length=255)),
-                ('data_assets', models.ManyToManyField(blank=True, related_name='processing_activities', to='detection.dataasset')),
-                ('external_services', models.ManyToManyField(blank=True, related_name='processing_activities', to='egress.externalservice')),
-                ('tenant', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='%(class)s_set', to='tenants.tenant')),
+                ('data_assets', models.ManyToManyField(blank=True, related_name='processing_activities', to='wiregraph_detection.dataasset')),
+                ('external_services', models.ManyToManyField(blank=True, related_name='processing_activities', to='wiregraph_egress.externalservice')),
+                ('tenant', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='%(class)s_set', to='wiregraph_tenants.tenant')),
             ],
             options={
                 'verbose_name': 'Processing Activity',

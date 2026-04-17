@@ -1,7 +1,7 @@
 DIRECTION_CHOICES = [
     ("inbound", "Inbound"),
     ("outbound", "Outbound"),
-    ("egress", "Egress"),
+    ("wiregraph_egress", "Egress"),
 ]
 
 DETECTION_METHOD_CHOICES = [

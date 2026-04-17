@@ -10,8 +10,8 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('egress', '0001_initial'),
-        ('tenants', '0001_initial'),
+        ('wiregraph_egress', '0001_initial'),
+        ('wiregraph_tenants', '0001_initial'),
     ]
 
     operations = [
@@ -25,7 +25,7 @@ class Migration(migrations.Migration):
                 ('label', models.CharField(help_text="Human-readable label, e.g. 'Email Address'", max_length=255)),
                 ('sensitivity_level', models.CharField(choices=[('low', 'Low'), ('medium', 'Medium'), ('high', 'High'), ('critical', 'Critical')], default='medium', max_length=20)),
                 ('description', models.TextField(blank=True)),
-                ('tenant', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='%(class)s_set', to='tenants.tenant')),
+                ('tenant', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='%(class)s_set', to='wiregraph_tenants.tenant')),
             ],
             options={
                 'verbose_name': 'Data Asset',
@@ -41,7 +41,7 @@ class Migration(migrations.Migration):
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('direction', models.CharField(choices=[('inbound', 'Inbound'), ('outbound', 'Outbound'), ('egress', 'Egress')], max_length=20)),
+                ('direction', models.CharField(choices=[('inbound', 'Inbound'), ('outbound', 'Outbound'), ('wiregraph_egress', 'Egress')], max_length=20)),
                 ('endpoint', models.CharField(help_text="Request path, e.g. '/api/users/'", max_length=2048)),
                 ('method', models.CharField(help_text="HTTP method, e.g. 'GET', 'POST'", max_length=10)),
                 ('detection_method', models.CharField(choices=[('regex', 'Regex'), ('presidio', 'Presidio')], max_length=20)),
@@ -49,9 +49,9 @@ class Migration(migrations.Migration):
                 ('confidence', models.FloatField(default=1.0, help_text='Detection confidence score (0.0 to 1.0)')),
                 ('request_id', models.CharField(blank=True, help_text='Optional correlation ID for grouping events from a single request', max_length=255)),
                 ('timestamp', models.DateTimeField(help_text='When the PII was observed')),
-                ('data_asset', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='events', to='detection.dataasset')),
-                ('external_service', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='events', to='egress.externalservice')),
-                ('tenant', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='%(class)s_set', to='tenants.tenant')),
+                ('data_asset', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='events', to='wiregraph_detection.dataasset')),
+                ('external_service', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='events', to='wiregraph_egress.externalservice')),
+                ('tenant', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='%(class)s_set', to='wiregraph_tenants.tenant')),
             ],
             options={
                 'verbose_name': 'Data Event',

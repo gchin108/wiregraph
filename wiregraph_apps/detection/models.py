@@ -30,7 +30,7 @@ class DataEvent(TenantScopedModel):
         related_name="events",
     )
     external_service = models.ForeignKey(
-        "egress.ExternalService",
+        "wiregraph_egress.ExternalService",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

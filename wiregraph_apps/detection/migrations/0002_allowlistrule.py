@@ -7,8 +7,8 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("detection", "0001_initial"),
-        ("tenants", "0001_initial"),
+        ("wiregraph_detection", "0001_initial"),
+        ("wiregraph_tenants", "0001_initial"),
     ]
 
     operations = [
@@ -46,7 +46,7 @@ class Migration(migrations.Migration):
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="%(class)s_set",
-                        to="tenants.tenant",
+                        to="wiregraph_tenants.tenant",
                     ),
                 ),
             ],

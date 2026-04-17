@@ -15,7 +15,7 @@ DEFAULTS = {
     "MAX_BODY_SIZE": 1_048_576,
     "EXCLUDED_PATHS": [],
     "TENANT_RESOLVER": "wiregraph.resolvers.default",
-    "TENANT_MODEL": "tenants.Tenant",
+    "TENANT_MODEL": "wiregraph_tenants.Tenant",
     "DISABLE_BUILTIN_ALERTS": False,
     "ADMIN_SITE": "django.contrib.admin.site",
 }

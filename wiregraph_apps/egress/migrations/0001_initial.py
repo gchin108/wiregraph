@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('tenants', '0001_initial'),
+        ('wiregraph_tenants', '0001_initial'),
     ]
 
     operations = [
@@ -25,7 +25,7 @@ class Migration(migrations.Migration):
                 ('purpose', models.TextField(blank=True, help_text='User-annotated purpose of this service')),
                 ('first_seen_at', models.DateTimeField(help_text='When this service was first observed in traffic')),
                 ('last_seen_at', models.DateTimeField(help_text='When this service was last observed in traffic')),
-                ('tenant', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='%(class)s_set', to='tenants.tenant')),
+                ('tenant', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='%(class)s_set', to='wiregraph_tenants.tenant')),
             ],
             options={
                 'verbose_name': 'External Service',

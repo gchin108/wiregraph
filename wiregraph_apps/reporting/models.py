@@ -12,12 +12,12 @@ class ProcessingActivity(TenantScopedModel):
         help_text="GDPR Article 6 legal basis — user-enriched",
     )
     data_assets = models.ManyToManyField(
-        "detection.DataAsset",
+        "wiregraph_detection.DataAsset",
         blank=True,
         related_name="processing_activities",
     )
     external_services = models.ManyToManyField(
-        "egress.ExternalService",
+        "wiregraph_egress.ExternalService",
         blank=True,
         related_name="processing_activities",
     )
