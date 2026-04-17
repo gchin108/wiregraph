@@ -81,16 +81,14 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # ---------------------------------------------------------------------------
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": env.str("POSTGRES_DB", "wiregraph"),
-        "USER": env.str("POSTGRES_USER", "wiregraph"),
-        "PASSWORD": env.str("POSTGRES_PASSWORD", "wiregraph"),
-        "HOST": env.str("POSTGRES_HOST", "localhost"),
-        "PORT": env.int("POSTGRES_PORT", 5432),
-    }
-}
+_default_db_url = (
+    f"postgres://{env.str('POSTGRES_USER', 'wiregraph')}:"
+    f"{env.str('POSTGRES_PASSWORD', 'wiregraph')}@"
+    f"{env.str('POSTGRES_HOST', 'localhost')}:"
+    f"{env.int('POSTGRES_PORT', 5432)}/"
+    f"{env.str('POSTGRES_DB', 'wiregraph')}"
+)
+DATABASES = {"default": env.dj_db_url("DATABASE_URL", _default_db_url)}
 
 # ---------------------------------------------------------------------------
 # Password validation

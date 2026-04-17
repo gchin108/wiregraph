@@ -60,7 +60,7 @@ Prefer a scaffolder? `python manage.py wiregraph_init --settings-file <path>` ap
 - Python 3.10+
 - Django 4.2+ or 5.x
 - Django REST Framework
-- PostgreSQL (JSONField support required)
+- A Django-supported database (PostgreSQL, MySQL, SQLite, or Oracle)
 - A tenant model. WireGraph is tenant-scoped by design — every event belongs to exactly one tenant. The default resolver walks `request.user.tenant_memberships`; see [Custom tenant resolution](#custom-tenant-resolution) if your model differs.
 
 ---
