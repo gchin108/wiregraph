@@ -10,16 +10,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY requirements/base.txt requirements/base.txt
-COPY requirements/local.txt requirements/local.txt
-RUN pip install --no-cache-dir -r requirements/local.txt
-
 COPY . /app
+RUN pip install --no-cache-dir -e ".[dev,postgres]"
 
-COPY docker/local/django/entrypoint.sh /entrypoint.sh
+COPY docker/django/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-COPY docker/local/django/start.sh /start.sh
+COPY docker/django/start.sh /start.sh
 RUN chmod +x /start.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

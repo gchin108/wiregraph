@@ -59,5 +59,5 @@ Documentation = "https://wiregraph.readthedocs.io"
 packages = ["wiregraph", "core_apps", "config"]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "config.settings.local"
+DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["test_*.py"]

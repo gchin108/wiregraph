@@ -1,5 +1,0 @@
--r base.txt
-pytest>=7.0
-pytest-django>=4.5
-factory-boy>=3.3
-coverage>=7.0

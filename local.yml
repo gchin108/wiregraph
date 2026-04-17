@@ -4,7 +4,7 @@ services:
   django:
     build:
       context: .
-      dockerfile: docker/local/django/Dockerfile
+      dockerfile: docker/django/Dockerfile
     command: /start.sh
     volumes:
       - .:/app
@@ -31,7 +31,7 @@ services:
   celery_worker:
     build:
       context: .
-      dockerfile: docker/local/django/Dockerfile
+      dockerfile: docker/django/Dockerfile
     command: celery -A config worker -l info
     volumes:
       - .:/app

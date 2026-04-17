@@ -1,20 +1,20 @@
-import os
 from datetime import timedelta
 from pathlib import Path
 
 from environs import Env
 
+import wiregraph
+
 env = Env()
 env.read_env()
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = env.str("DJANGO_SECRET_KEY", "change-me-in-production")
 
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", ["localhost", "127.0.0.1"])
+ALLOWED_HOSTS = ["*"]
 
 # ---------------------------------------------------------------------------
 # Application definition
@@ -28,8 +28,6 @@ DJANGO_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 ]
-
-import wiregraph
 
 THIRD_PARTY_APPS = [
     "rest_framework",
@@ -45,8 +43,8 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + [*wiregraph.INSTALLED_APPS]
 # Middleware
 # ---------------------------------------------------------------------------
 
-# instead of manually placed middleware, we use wiregraph.setup to ensure correct ordering of JWTAuthMiddleware and PIIDetectionMiddleware
-MIDDLEWARE = wiregraph.setup([ 
+# wiregraph.setup ensures correct ordering of JWTAuthMiddleware and PIIDetectionMiddleware
+MIDDLEWARE = wiregraph.setup([
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -161,13 +159,7 @@ SIMPLE_JWT = {
 # CORS
 # ---------------------------------------------------------------------------
 
-CORS_ALLOWED_ORIGINS = env.list(
-    "CORS_ALLOWED_ORIGINS",
-    [
-        "https://app.wiregraph.io",
-        "http://localhost:3000",
-    ],
-)
+CORS_ALLOW_ALL_ORIGINS = True
 
 # ---------------------------------------------------------------------------
 # drf-spectacular (OpenAPI)

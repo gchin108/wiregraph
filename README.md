@@ -7,7 +7,8 @@ Runtime PII leak detector for Django. Wiregraph finds personal data leaking from
 Wiregraph sits inside your Django application and monitors HTTP traffic for personally identifiable information (PII). It detects PII in both **inbound/outbound API responses** and **egress traffic to third-party services**, logging every occurrence without ever storing raw PII.
 
 - **Regex-based detection** out of the box -- catches emails, phone numbers, SSNs, credit cards, and more
-- **Presidio integration** (optional) for ML-powered entity recognition
+- **
+integration** (optional) for ML-powered entity recognition
 - **Egress tracking** -- monitors outbound calls to external services (e.g., OpenAI, Stripe) and flags PII sent to them
 - **Multi-tenant** -- built for SaaS with full tenant isolation
 - **Compliance reporting** -- export PDF or JSON reports of PII data flows
