@@ -48,6 +48,7 @@ class DataEventSerializer(serializers.ModelSerializer):
             "detection_method",
             "redacted_snippet",
             "confidence",
+            "match_count",
             "request_id",
             "timestamp",
         ]

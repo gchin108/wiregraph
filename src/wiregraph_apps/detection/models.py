@@ -48,6 +48,10 @@ class DataEvent(TenantScopedModel):
         default=1.0,
         help_text="Detection confidence score (0.0 to 1.0)",
     )
+    match_count = models.PositiveIntegerField(
+        default=1,
+        help_text="Number of matches coalesced into this event (per asset per request)",
+    )
     request_id = models.CharField(
         max_length=255,
         blank=True,

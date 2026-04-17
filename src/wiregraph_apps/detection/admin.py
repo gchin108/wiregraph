@@ -22,6 +22,7 @@ class DataEventAdmin(admin.ModelAdmin):
         "method",
         "detection_method",
         "confidence",
+        "match_count",
         "timestamp",
     )
     list_filter = ("direction", "detection_method", "data_asset", "tenant")

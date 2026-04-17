@@ -138,6 +138,28 @@ def test_tenant_isolation(rf, ok_view):
         DataEvent.objects.filter(tenant=m2.tenant).first().request_id
 
 
+def test_multiple_matches_coalesce_per_asset(rf, user_with_tenant):
+    def view(request):
+        return JsonResponse({
+            "users": [
+                {"email": "a@example.com", "phone": "415-555-0100"},
+                {"email": "b@example.com", "phone": "415-555-0101"},
+                {"email": "c@example.com", "phone": "415-555-0102"},
+            ],
+        })
+
+    mw = PIIDetectionMiddleware(view)
+    req = rf.get("/api/users/")
+    req.user = user_with_tenant
+    mw(req)
+
+    events = DataEvent.objects.filter(direction="outbound")
+    assert events.count() == 2
+    by_asset = {e.data_asset.name: e for e in events}
+    assert by_asset["email"].match_count == 3
+    assert by_asset["phone_us"].match_count == 3
+
+
 def test_non_scannable_content_type_skipped(rf, user_with_tenant, ok_view):
     mw = PIIDetectionMiddleware(ok_view)
     req = rf.post(

@@ -193,21 +193,24 @@ class PIIDetectionMiddleware:
 
         asset_cache: dict[str, DataAsset] = {}
         new_assets: list[DataAsset] = []
+        coalesced: dict[str, list[Match]] = {}
+        for match in matches:
+            coalesced.setdefault(match.asset_name, []).append(match)
+
         events: list[DataEvent] = []
         now = timezone.now()
 
         with transaction.atomic():
-            for match in matches:
-                asset = asset_cache.get(match.asset_name)
-                if asset is None:
-                    asset, created = DataAsset.objects.get_or_create(
-                        tenant=tenant,
-                        name=match.asset_name,
-                        defaults={"label": match.asset_name.replace("_", " ").title()},
-                    )
-                    asset_cache[match.asset_name] = asset
-                    if created:
-                        new_assets.append(asset)
+            for asset_name, asset_matches in coalesced.items():
+                asset, created = DataAsset.objects.get_or_create(
+                    tenant=tenant,
+                    name=asset_name,
+                    defaults={"label": asset_name.replace("_", " ").title()},
+                )
+                asset_cache[asset_name] = asset
+                if created:
+                    new_assets.append(asset)
+                first = asset_matches[0]
                 events.append(
                     DataEvent(
                         tenant=tenant,
@@ -216,10 +219,11 @@ class PIIDetectionMiddleware:
                         endpoint=endpoint,
                         method=method,
                         detection_method="regex",
-                        redacted_snippet=redact(match.value),
-                        confidence=match.confidence,
+                        redacted_snippet=redact(first.value),
+                        confidence=first.confidence,
                         request_id=request_id,
                         timestamp=now,
+                        match_count=len(asset_matches),
                     )
                 )
             created_events = DataEvent.objects.bulk_create(events)
