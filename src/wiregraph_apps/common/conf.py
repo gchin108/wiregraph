@@ -14,6 +14,7 @@ DEFAULTS = {
     "SAMPLING_RATE": 1.0,
     "MAX_BODY_SIZE": 1_048_576,
     "EXCLUDED_PATHS": [],
+    "AUTO_EXCLUDE_ADMIN": True,
     "TENANT_RESOLVER": "wiregraph.resolvers.default",
     "TENANT_MODEL": "wiregraph_tenants.Tenant",
     "DISABLE_BUILTIN_ALERTS": False,
@@ -34,6 +35,7 @@ class WiregraphSettings(TypedDict, total=False):
     SAMPLING_RATE: float
     MAX_BODY_SIZE: int
     EXCLUDED_PATHS: list[str]
+    AUTO_EXCLUDE_ADMIN: bool
     TENANT_RESOLVER: str
     TENANT_MODEL: str
     DISABLE_BUILTIN_ALERTS: bool
@@ -59,7 +61,25 @@ def get_max_body_size() -> int:
 
 
 def get_excluded_paths() -> list[str]:
-    return list(get_config("EXCLUDED_PATHS"))
+    paths = list(get_config("EXCLUDED_PATHS"))
+    if get_config("AUTO_EXCLUDE_ADMIN"):
+        admin_prefix = _resolve_admin_prefix()
+        if admin_prefix and admin_prefix not in paths:
+            paths.append(admin_prefix)
+    return paths
+
+
+def _resolve_admin_prefix() -> str | None:
+    """Return the mounted Django admin URL prefix, or None if unavailable.
+
+    Scanning the admin creates a feedback loop: wiregraph's own DataEvent list
+    view renders detected PII, which the middleware would then re-detect.
+    """
+    try:
+        from django.urls import reverse
+        return reverse("admin:index")
+    except Exception:
+        return None
 
 
 def get_redact_strategy() -> str:

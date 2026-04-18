@@ -53,7 +53,7 @@
 <script>
   (function() {
     const data = JSON.parse(document.getElementById("wg-graph-data").textContent);
-    const eventsBase = "{% url 'admin:detection_dataevent_changelist' %}";
+    const eventsBase = "{% url 'admin:wiregraph_detection_dataevent_changelist' %}";
 
     const svg = d3.select("#wg-graph");
     const width = svg.node().getBoundingClientRect().width;

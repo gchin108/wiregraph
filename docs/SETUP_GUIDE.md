@@ -40,6 +40,7 @@ Prefer a scaffolder? `python manage.py wiregraph_init --settings-file <path>` ap
 
 - [Quick start](#quick-start) ↑
 - [Requirements](#requirements)
+- [Installing Presidio](#installing-presidio)
 - [Settings reference](#settings-reference)
 - [Advanced topics](#advanced-topics)
   - [Custom tenant resolution](#custom-tenant-resolution)
@@ -62,6 +63,28 @@ Prefer a scaffolder? `python manage.py wiregraph_init --settings-file <path>` ap
 - Django REST Framework
 - A Django-supported database (PostgreSQL, MySQL, SQLite, or Oracle)
 - A tenant model. WireGraph is tenant-scoped by design — every event belongs to exactly one tenant. The default resolver walks `request.user.tenant_memberships`; see [Custom tenant resolution](#custom-tenant-resolution) if your model differs.
+
+---
+
+## Installing Presidio
+
+Presidio is an optional extra. Both the Python packages *and* a spaCy language model are required — the model is distributed separately from PyPI and must be downloaded as a post-install step.
+
+**Local / virtualenv:**
+
+```bash
+pip install 'wiregraph[presidio]'
+python -m spacy download en_core_web_lg
+```
+
+**Dockerfile:**
+
+```dockerfile
+RUN pip install 'wiregraph[presidio]' \
+    && python -m spacy download en_core_web_lg
+```
+
+Quote `'wiregraph[presidio]'` — unquoted brackets get interpreted by the shell. `wiregraph_doctor` will warn if `ENABLE_PRESIDIO` is on but the spaCy model isn't loadable.
 
 ---
 

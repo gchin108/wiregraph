@@ -71,6 +71,8 @@ WIREGRAPH = {
 
 See [docs/settings.md](docs/settings.md) for all available keys, types, and defaults.
 
+> **Admin auto-exclusion.** Wiregraph skips scanning under your Django admin URL prefix by default (`AUTO_EXCLUDE_ADMIN=True`). Without this, the admin list view for `DataEvent` would re-detect the PII it displays on every refresh, creating a feedback loop. Set `AUTO_EXCLUDE_ADMIN=False` to opt out.
+
 **Custom tenant resolution.** By default Wiregraph walks `request.user.tenant_memberships` to find the active tenant. If your project stores tenancy differently (FK on the user, subdomain, gateway header, etc.), point `WIREGRAPH["TENANT_RESOLVER"]` at your own callable:
 
 ```python
@@ -120,7 +122,7 @@ WIREGRAPH = {
 }
 ```
 
-Requires `pip install wiregraph[presidio]`, `python -m spacy download en_core_web_lg`, and a running Celery worker. Presidio matches that overlap a regex match on the same asset are deduped (regex wins on precision).
+Requires the `presidio` extra, a spaCy language model, and a running Celery worker — see [Installing Presidio](docs/SETUP_GUIDE.md#installing-presidio) for local and Docker instructions. Presidio matches that overlap a regex match on the same asset are deduped (regex wins on precision).
 
 ## Scheduled retention purge
 

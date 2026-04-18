@@ -90,6 +90,23 @@ def test_excluded_path_skips_scan(rf, user_with_tenant, leaky_view, settings):
     assert DataEvent.objects.count() == 0
 
 
+def test_admin_path_auto_excluded(rf, user_with_tenant, leaky_view):
+    mw = PIIDetectionMiddleware(leaky_view)
+    req = rf.get("/admin/wiregraph_detection/dataevent/")
+    req.user = user_with_tenant
+    mw(req)
+    assert DataEvent.objects.count() == 0
+
+
+def test_admin_auto_exclude_can_be_disabled(rf, user_with_tenant, leaky_view, settings):
+    settings.WIREGRAPH = {**getattr(settings, "WIREGRAPH", {}), "AUTO_EXCLUDE_ADMIN": False}
+    mw = PIIDetectionMiddleware(leaky_view)
+    req = rf.get("/admin/wiregraph_detection/dataevent/")
+    req.user = user_with_tenant
+    mw(req)
+    assert DataEvent.objects.count() > 0
+
+
 def test_sampling_rate_zero_skips_scan(rf, user_with_tenant, leaky_view, settings):
     settings.WIREGRAPH = {**getattr(settings, "WIREGRAPH", {}), "SAMPLING_RATE": 0.0}
     mw = PIIDetectionMiddleware(leaky_view)
