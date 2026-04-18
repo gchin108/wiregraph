@@ -54,10 +54,10 @@ def _build_graph(user, start, end) -> dict:
     if end:
         qs = qs.filter(timestamp__lt=datetime.combine(end + timedelta(days=1), time.min))
 
-    # Inbound endpoints → asset
+    # Inbound + outbound endpoints → asset (rendered in separate sub-groups)
     inbound = (
-        qs.filter(direction="inbound")
-        .values("endpoint", "data_asset__name", "data_asset__label")
+        qs.filter(direction__in=["inbound", "outbound"])
+        .values("endpoint", "direction", "data_asset__name", "data_asset__label")
         .annotate(n=Count("id"))
     )
     # Asset → external service (egress)
@@ -72,21 +72,23 @@ def _build_graph(user, start, end) -> dict:
         .annotate(n=Count("id"))
     )
 
-    endpoints: dict[str, int] = {}
+    endpoints: dict[tuple[str, str], int] = {}
     assets: dict[str, dict] = {}
     services: dict[str, dict] = {}
     edges: list[dict] = []
 
     for row in inbound:
         ep = row["endpoint"] or "/"
+        direction = row["direction"]
         asset_name = row["data_asset__name"]
-        endpoints[ep] = endpoints.get(ep, 0) + row["n"]
+        key = (direction, ep)
+        endpoints[key] = endpoints.get(key, 0) + row["n"]
         assets.setdefault(
             asset_name, {"name": asset_name, "label": row["data_asset__label"], "count": 0}
         )["count"] += row["n"]
         edges.append(
             {
-                "source": f"endpoint::{ep}",
+                "source": f"endpoint::{direction}::{ep}",
                 "target": f"asset::{asset_name}",
                 "weight": row["n"],
             }
@@ -112,8 +114,15 @@ def _build_graph(user, start, end) -> dict:
 
     return {
         "endpoints": [
-            {"id": f"endpoint::{ep}", "label": ep, "count": n}
-            for ep, n in sorted(endpoints.items(), key=lambda kv: -kv[1])
+            {
+                "id": f"endpoint::{direction}::{ep}",
+                "label": ep,
+                "direction": direction,
+                "count": n,
+            }
+            for (direction, ep), n in sorted(
+                endpoints.items(), key=lambda kv: (kv[0][0] != "inbound", -kv[1])
+            )
         ],
         "assets": [
             {"id": f"asset::{a['name']}", "label": a["label"] or a["name"], "count": a["count"]}

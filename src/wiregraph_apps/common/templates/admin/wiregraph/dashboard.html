@@ -25,6 +25,10 @@
     #wiregraph-dashboard .wg-node text { font-size: 11px; pointer-events: none; }
     #wiregraph-dashboard .wg-edge { fill: none; stroke: #417690; stroke-opacity: 0.45; }
     #wiregraph-dashboard .wg-edge:hover { stroke-opacity: 0.9; }
+    #wiregraph-dashboard .wg-subheader {
+      font-size: 0.7rem; text-transform: uppercase; fill: #888;
+      letter-spacing: 0.05em;
+    }
   </style>
 
   <form method="get" class="wg-filters">
@@ -65,18 +69,39 @@
     const rowGap = 8;
 
     const columns = [
-      { key: "endpoints", title: "Inbound Endpoints", x: colPad + colWidth * 0.5 },
+      { key: "endpoints", title: "Endpoints", x: colPad + colWidth * 0.5 },
       { key: "assets", title: "PII Types", x: colPad + colWidth * 1.5 },
       { key: "services", title: "External Services", x: colPad + colWidth * 2.5 },
     ];
 
+    const subgroupGap = 18;
     const positions = {};
+    const subheaders = [];
     columns.forEach(col => {
       const items = data[col.key] || [];
-      const totalH = items.length * (nodeH + rowGap);
+      let totalH = items.length * (nodeH + rowGap);
+      if (col.key === "endpoints") {
+        const groups = new Set(items.map(n => n.direction));
+        if (groups.size > 1) totalH += subgroupGap + 14;
+        else if (groups.size === 1) totalH += 14;
+      }
       let y = Math.max(50, (height - totalH) / 2);
+      let lastDir = null;
       items.forEach(n => {
-        positions[n.id] = { x: col.x, y: y + nodeH / 2, label: n.label, count: n.count };
+        if (col.key === "endpoints" && n.direction !== lastDir) {
+          if (lastDir !== null) y += subgroupGap;
+          subheaders.push({
+            x: col.x,
+            y: y + 10,
+            text: n.direction === "inbound" ? "Inbound" : "Outbound",
+          });
+          y += 14;
+          lastDir = n.direction;
+        }
+        positions[n.id] = {
+          x: col.x, y: y + nodeH / 2,
+          label: n.label, count: n.count, direction: n.direction,
+        };
         y += nodeH + rowGap;
       });
     });
@@ -91,6 +116,17 @@
       .attr("y", 24)
       .attr("text-anchor", "middle")
       .text(d => d.title);
+
+    // sub-group headers (Inbound / Outbound under Endpoints)
+    svg.append("g").selectAll("text.wg-subheader")
+      .data(subheaders)
+      .enter()
+      .append("text")
+      .attr("class", "wg-subheader")
+      .attr("x", d => d.x)
+      .attr("y", d => d.y)
+      .attr("text-anchor", "middle")
+      .text(d => d.text);
 
     // edges
     const maxW = Math.max(1, ...(data.edges || []).map(e => e.weight));
@@ -120,17 +156,18 @@
           .attr("transform", `translate(${p.x - nodeW / 2},${p.y - nodeH / 2})`);
 
         const filterParam = col.key === "endpoints"
-          ? `endpoint=${encodeURIComponent(p.label)}`
+          ? `endpoint=${encodeURIComponent(p.label)}&direction=${encodeURIComponent(p.direction)}`
           : col.key === "assets"
             ? `data_asset__name=${encodeURIComponent(n.id.split("::")[1])}`
             : `external_service__domain=${encodeURIComponent(n.id.split("::")[1])}`;
 
+        const endpointFill = p.direction === "outbound" ? "#fff4e5" : "#e8f0fe";
         g.append("a")
           .attr("href", `${eventsBase}?${filterParam}`)
           .append("rect")
           .attr("width", nodeW).attr("height", nodeH)
           .attr("rx", 4)
-          .attr("fill", col.key === "endpoints" ? "#e8f0fe"
+          .attr("fill", col.key === "endpoints" ? endpointFill
               : col.key === "assets" ? "#fdecea" : "#e6f4ea")
           .attr("stroke", "#417690");
 
