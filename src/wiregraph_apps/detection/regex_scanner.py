@@ -3,7 +3,9 @@ import re
 from dataclasses import dataclass
 from typing import Iterable
 
-from wiregraph_apps.common.conf import get_redact_strategy
+from django.core.exceptions import ImproperlyConfigured
+
+from wiregraph_apps.common.conf import get_custom_patterns, get_redact_strategy
 
 
 @dataclass(frozen=True)
@@ -46,7 +48,56 @@ def _luhn_valid(digits: str) -> bool:
     return total % 10 == 0
 
 
+_FLAG_MAP = {
+    "i": re.IGNORECASE,
+    "m": re.MULTILINE,
+    "s": re.DOTALL,
+    "x": re.VERBOSE,
+    "a": re.ASCII,
+}
+
+
+def _compile_custom_patterns(specs: list[dict]) -> list[tuple[str, re.Pattern, float]]:
+    compiled: list[tuple[str, re.Pattern, float]] = []
+    for i, spec in enumerate(specs):
+        if not isinstance(spec, dict):
+            raise ImproperlyConfigured(
+                f"WIREGRAPH.CUSTOM_PATTERNS[{i}] must be a dict, got {type(spec).__name__}"
+            )
+        name = spec.get("name")
+        pattern = spec.get("regex")
+        if not name or not isinstance(name, str):
+            raise ImproperlyConfigured(
+                f"WIREGRAPH.CUSTOM_PATTERNS[{i}] missing 'name'"
+            )
+        if not pattern or not isinstance(pattern, str):
+            raise ImproperlyConfigured(
+                f"WIREGRAPH.CUSTOM_PATTERNS[{i}] ({name}) missing 'regex'"
+            )
+        flags = 0
+        for ch in spec.get("flags", "") or "":
+            if ch not in _FLAG_MAP:
+                raise ImproperlyConfigured(
+                    f"WIREGRAPH.CUSTOM_PATTERNS[{i}] ({name}) unknown flag {ch!r}; "
+                    f"valid: {''.join(_FLAG_MAP)}"
+                )
+            flags |= _FLAG_MAP[ch]
+        try:
+            regex = re.compile(pattern, flags)
+        except re.error as e:
+            raise ImproperlyConfigured(
+                f"WIREGRAPH.CUSTOM_PATTERNS[{i}] ({name}) invalid regex: {e}"
+            ) from e
+        confidence = float(spec.get("confidence", 0.75))
+        compiled.append((name, regex, confidence))
+    return compiled
+
+
 class RegexScanner:
+    def __init__(self, custom_patterns: list[dict] | None = None):
+        specs = custom_patterns if custom_patterns is not None else get_custom_patterns()
+        self._custom = _compile_custom_patterns(specs)
+
     def scan(self, text: str) -> list[Match]:
         if not text:
             return []
@@ -66,6 +117,9 @@ class RegexScanner:
             matches.append(Match("ipv4", m.start(), m.end(), m.group(), 0.8))
         for m in _IPV6_RE.finditer(text):
             matches.append(Match("ipv6", m.start(), m.end(), m.group(), 0.8))
+        for name, regex, confidence in self._custom:
+            for m in regex.finditer(text):
+                matches.append(Match(name, m.start(), m.end(), m.group(), confidence))
         return matches
 
 

@@ -18,6 +18,7 @@ DEFAULTS = {
     "TENANT_MODEL": "wiregraph_tenants.Tenant",
     "DISABLE_BUILTIN_ALERTS": False,
     "ADMIN_SITE": "django.contrib.admin.site",
+    "CUSTOM_PATTERNS": [],
 }
 
 
@@ -37,6 +38,7 @@ class WiregraphSettings(TypedDict, total=False):
     TENANT_MODEL: str
     DISABLE_BUILTIN_ALERTS: bool
     ADMIN_SITE: str
+    CUSTOM_PATTERNS: list[dict]
 
 
 def get_config(key):
@@ -66,3 +68,7 @@ def get_redact_strategy() -> str:
 
 def get_allowlisted_fields() -> list[str]:
     return list(get_config("ALLOWLISTED_FIELDS"))
+
+
+def get_custom_patterns() -> list[dict]:
+    return list(get_config("CUSTOM_PATTERNS"))

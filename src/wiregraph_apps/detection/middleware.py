@@ -16,12 +16,9 @@ from __future__ import annotations
 import logging
 import random
 import uuid
-from typing import Iterable
-
-from django.db import transaction
-from django.utils import timezone
 
 from wiregraph_apps.common.conf import (
+    get_config,
     get_excluded_paths,
     get_max_body_size,
     get_sampling_rate,
@@ -31,10 +28,8 @@ from wiregraph_apps.common.tenancy import (
     resolve_tenant,
     set_current_tenant,
 )
-from wiregraph_apps.detection.allowlist import filter_matches
-from wiregraph_apps.detection.models import DataAsset, DataEvent
-from wiregraph_apps.detection.regex_scanner import Match, RegexScanner, redact
-from wiregraph_apps.detection.signals import new_data_asset_discovered, pii_detected
+from wiregraph_apps.detection.persistence import persist_matches
+from wiregraph_apps.detection.regex_scanner import RegexScanner
 
 logger = logging.getLogger(__name__)
 
@@ -122,22 +117,30 @@ class PIIDetectionMiddleware:
             return
 
         matches = self.scanner.scan(text)
-        if not matches:
-            return
-
         tenant = resolve_tenant(request)
         if tenant is None:
             logger.debug("wiregraph: no tenant for request %s; skipping", request.path)
             return
 
-        self._persist(
+        request_id = getattr(request, _REQUEST_ID_ATTR, "")
+        if matches:
+            persist_matches(
+                tenant=tenant,
+                matches=matches,
+                direction="inbound",
+                endpoint=request.path,
+                method=request.method or "",
+                detection_method="regex",
+                request_id=request_id,
+                request=request,
+            )
+        self._enqueue_presidio(
             tenant=tenant,
-            matches=matches,
+            text=text,
             direction="inbound",
             endpoint=request.path,
             method=request.method or "",
-            request_id=getattr(request, _REQUEST_ID_ATTR, ""),
-            request=request,
+            request_id=request_id,
         )
 
     def _scan_outbound(self, request, response) -> None:
@@ -154,89 +157,63 @@ class PIIDetectionMiddleware:
             return
 
         matches = self.scanner.scan(text)
-        if not matches:
-            return
-
         tenant = resolve_tenant(request)
         if tenant is None:
             logger.debug("wiregraph: no tenant for response %s; skipping", request.path)
             return
 
-        self._persist(
+        request_id = getattr(request, _REQUEST_ID_ATTR, "")
+        if matches:
+            persist_matches(
+                tenant=tenant,
+                matches=matches,
+                direction="outbound",
+                endpoint=request.path,
+                method=request.method or "",
+                detection_method="regex",
+                request_id=request_id,
+                request=request,
+            )
+        self._enqueue_presidio(
             tenant=tenant,
-            matches=matches,
+            text=text,
             direction="outbound",
             endpoint=request.path,
             method=request.method or "",
-            request_id=getattr(request, _REQUEST_ID_ATTR, ""),
-            request=request,
+            request_id=request_id,
         )
 
     # ------------------------------------------------------------------
-    # Persistence
+    # Async Presidio enqueue
     # ------------------------------------------------------------------
 
-    def _persist(
+    def _enqueue_presidio(
         self,
         *,
         tenant,
-        matches: Iterable[Match],
+        text: str,
         direction: str,
         endpoint: str,
         method: str,
         request_id: str,
-        request,
     ) -> None:
-        matches = filter_matches(tenant, list(matches), endpoint)
-        if not matches:
+        if not get_config("ENABLE_PRESIDIO"):
             return
-
-        asset_cache: dict[str, DataAsset] = {}
-        new_assets: list[DataAsset] = []
-        coalesced: dict[str, list[Match]] = {}
-        for match in matches:
-            coalesced.setdefault(match.asset_name, []).append(match)
-
-        events: list[DataEvent] = []
-        now = timezone.now()
-
-        with transaction.atomic():
-            for asset_name, asset_matches in coalesced.items():
-                asset, created = DataAsset.objects.get_or_create(
-                    tenant=tenant,
-                    name=asset_name,
-                    defaults={"label": asset_name.replace("_", " ").title()},
-                )
-                asset_cache[asset_name] = asset
-                if created:
-                    new_assets.append(asset)
-                first = asset_matches[0]
-                events.append(
-                    DataEvent(
-                        tenant=tenant,
-                        data_asset=asset,
-                        direction=direction,
-                        endpoint=endpoint,
-                        method=method,
-                        detection_method="regex",
-                        redacted_snippet=redact(first.value),
-                        confidence=first.confidence,
-                        request_id=request_id,
-                        timestamp=now,
-                        match_count=len(asset_matches),
-                    )
-                )
-            created_events = DataEvent.objects.bulk_create(events)
-
-        for asset in new_assets:
-            new_data_asset_discovered.send(
-                sender=DataAsset,
-                data_asset=asset,
-                tenant=tenant,
+        if not text:
+            return
+        try:
+            from wiregraph_apps.detection.tasks import scan_payload_async
+        except ImportError:
+            logger.debug("wiregraph: celery not installed; skipping presidio enqueue")
+            return
+        try:
+            scan_payload_async.delay(
+                tenant_id=tenant.pk,
+                text=text,
+                direction=direction,
+                endpoint=endpoint,
+                method=method,
+                request_id=request_id,
             )
-        for event in created_events:
-            pii_detected.send(
-                sender=DataEvent,
-                data_event=event,
-                request=request,
-            )
+        except Exception:
+            logger.exception("wiregraph: failed to enqueue presidio scan")

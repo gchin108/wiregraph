@@ -79,3 +79,37 @@ def test_redact_truncate_short_and_long():
 def test_redact_unknown_strategy_raises():
     with pytest.raises(ValueError):
         redact("x", "bogus")
+
+
+def test_custom_patterns_detected():
+    scanner = RegexScanner(custom_patterns=[
+        {"name": "emp_id", "regex": r"EMP-\d{6}", "confidence": 0.8},
+    ])
+    matches = scanner.scan("employee EMP-123456 logged in")
+    assert any(m.asset_name == "emp_id" and m.value == "EMP-123456" and m.confidence == 0.8
+               for m in matches)
+
+
+def test_custom_patterns_flags_applied():
+    scanner = RegexScanner(custom_patterns=[
+        {"name": "token", "regex": r"secret-[a-z]+", "flags": "i"},
+    ])
+    assert any(m.asset_name == "token" for m in scanner.scan("SECRET-ABCDEF"))
+
+
+def test_custom_patterns_invalid_regex_raises():
+    from django.core.exceptions import ImproperlyConfigured
+    with pytest.raises(ImproperlyConfigured):
+        RegexScanner(custom_patterns=[{"name": "bad", "regex": "("}])
+
+
+def test_custom_patterns_missing_name_raises():
+    from django.core.exceptions import ImproperlyConfigured
+    with pytest.raises(ImproperlyConfigured):
+        RegexScanner(custom_patterns=[{"regex": r"x"}])
+
+
+def test_custom_patterns_unknown_flag_raises():
+    from django.core.exceptions import ImproperlyConfigured
+    with pytest.raises(ImproperlyConfigured):
+        RegexScanner(custom_patterns=[{"name": "x", "regex": r"x", "flags": "z"}])

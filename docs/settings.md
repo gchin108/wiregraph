@@ -25,7 +25,8 @@ WIREGRAPH: WiregraphSettings = {
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `ENABLED` | `bool` | `False` | Master switch. When `False`, middleware is inert and no events are recorded. |
-| `ENABLE_PRESIDIO` | `bool` | `False` | Enable Microsoft Presidio as a secondary detection engine alongside regex. Requires `presidio-analyzer` + `presidio-anonymizer`. Higher CPU cost per request. |
+| `ENABLE_PRESIDIO` | `bool` | `False` | Enable Microsoft Presidio as a secondary (async) detection engine. Middleware enqueues each scannable payload to Celery (`wiregraph.detection.scan_payload_async`); results persist as `DataEvent(detection_method="presidio")`. Requires `pip install wiregraph[presidio]` plus `python -m spacy download en_core_web_lg` and a running Celery worker. |
+| `CUSTOM_PATTERNS` | `list[dict]` | `[]` | User-registered regex detectors merged into the fast regex scanner. Each entry: `{"name": str, "regex": str, "confidence": float = 0.75, "flags": str = ""}`. Flags are a string of `imsxa` characters mapped to `re.IGNORECASE`/`MULTILINE`/`DOTALL`/`VERBOSE`/`ASCII`. Invalid specs raise `ImproperlyConfigured` at startup. Example: `[{"name": "emp_id", "regex": r"\bEMP-\d{6}\b", "confidence": 0.9}]`. |
 | `ENABLE_EGRESS_TRACKING` | `bool` | `False` | Master switch for the outbound `requests` interceptor. See SETUP_GUIDE §8. |
 | `DISABLE_EGRESS_PATCHING` | `bool` | `False` | Hard override that skips the monkey-patch even when `ENABLE_EGRESS_TRACKING=True`. Intended for test runners using `responses`/`VCR.py`. Leave `False` in production. |
 | `DATA_RETENTION_DAYS` | `int` | `90` | Age at which `DataEvent` rows become eligible for purging via the `wiregraph_purge` command. Tune per compliance regime (GDPR often 30–90 days, HIPAA typically 6 years). |

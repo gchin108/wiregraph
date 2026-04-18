@@ -7,8 +7,8 @@ Runtime PII leak detector for Django. Wiregraph finds personal data leaking from
 Wiregraph sits inside your Django application and monitors HTTP traffic for personally identifiable information (PII). It detects PII in both **inbound/outbound API responses** and **egress traffic to third-party services**, logging every occurrence without ever storing raw PII.
 
 - **Regex-based detection** out of the box -- catches emails, phone numbers, SSNs, credit cards, and more
-- **
-integration** (optional) for ML-powered entity recognition
+- **Custom regex patterns** -- register your own detectors (internal IDs, locale-specific formats) via `WIREGRAPH["CUSTOM_PATTERNS"]`
+- **Presidio integration** (optional) -- ML-powered entity recognition that runs async via Celery so the request cycle stays fast
 - **Egress tracking** -- monitors outbound calls to external services (e.g., OpenAI, Stripe) and flags PII sent to them
 - **Multi-tenant** -- built for SaaS with full tenant isolation
 - **Compliance reporting** -- export PDF or JSON reports of PII data flows
@@ -24,8 +24,9 @@ pip install wiregraph
 With optional extras:
 
 ```bash
-# Presidio ML-based detection
+# Presidio ML-based detection (also requires a spaCy model)
 pip install wiregraph[presidio]
+python -m spacy download en_core_web_lg
 
 # PDF/JSON export support
 pip install wiregraph[export]
@@ -89,6 +90,37 @@ WIREGRAPH = {
 ```bash
 python manage.py migrate
 ```
+
+## Extending detection
+
+### Custom regex patterns
+
+Register project-specific detectors (internal IDs, locale-specific formats) without forking Wiregraph:
+
+```python
+WIREGRAPH = {
+    "ENABLED": True,
+    "CUSTOM_PATTERNS": [
+        {"name": "emp_id", "regex": r"\bEMP-\d{6}\b", "confidence": 0.9},
+        {"name": "phone_uk", "regex": r"\+44\s?\d{2,4}\s?\d{3,4}\s?\d{3,4}", "flags": "i"},
+    ],
+}
+```
+
+Each entry takes `name`, `regex`, optional `confidence` (default `0.75`), and optional `flags` (string of `imsxa`). Invalid specs fail loudly at startup.
+
+### Presidio (deep NLP)
+
+Presidio catches names, addresses, international phone numbers, IBANs, and 50+ other entity types that regex misses. It runs **asynchronously via Celery**, so the request cycle stays on the fast regex path:
+
+```python
+WIREGRAPH = {
+    "ENABLED": True,
+    "ENABLE_PRESIDIO": True,
+}
+```
+
+Requires `pip install wiregraph[presidio]`, `python -m spacy download en_core_web_lg`, and a running Celery worker. Presidio matches that overlap a regex match on the same asset are deduped (regex wins on precision).
 
 ## Scheduled retention purge
 
