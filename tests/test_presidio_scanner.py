@@ -19,7 +19,7 @@ def test_dedupe_drops_overlapping_same_asset_match():
 
 def test_dedupe_keeps_different_asset_on_same_span():
     regex = [Match("email", 0, 20, "x", 0.99)]
-    presidio = [Match("url", 5, 15, "x", 0.8)]
+    presidio = [Match("person_name", 5, 15, "x", 0.8)]
     assert dedupe_against(presidio, regex) == presidio
 
 

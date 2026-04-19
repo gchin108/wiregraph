@@ -33,10 +33,14 @@ _ENTITY_MAP = {
     "IP_ADDRESS": "ip_address",
     "DATE_TIME": "date_time",
     "MEDICAL_LICENSE": "medical_license",
-    "URL": "url",
     "NRP": "nationality",
     "CRYPTO": "crypto_wallet",
 }
+
+# Presidio entities we suppress entirely. URL is noisy: it fires on email
+# domains, CDN/media links, map links, and any domain.tld substring in
+# descriptions — none of which are PII in typical threat models.
+_DROPPED_ENTITIES = frozenset({"URL"})
 
 
 def _import_analyzer():
@@ -72,6 +76,8 @@ class PresidioScanner:
         for r in results:
             if r.score < self.min_score:
                 continue
+            if r.entity_type in _DROPPED_ENTITIES:
+                continue
             asset_name = _ENTITY_MAP.get(r.entity_type, r.entity_type.lower())
             matches.append(
                 Match(
@@ -89,8 +95,7 @@ def dedupe_against(presidio_matches: Iterable[Match], regex_matches: Iterable[Ma
     """Drop Presidio matches whose span overlaps a regex match for the same asset.
 
     Regex matches are high-precision; prefer them when both layers fire on the
-    same span. Different-asset overlaps are kept (e.g. regex "email" +
-    Presidio "URL" over the same substring both carry signal).
+    same span. Different-asset overlaps are kept.
     """
     regex_spans: dict[str, list[tuple[int, int]]] = {}
     for m in regex_matches:
