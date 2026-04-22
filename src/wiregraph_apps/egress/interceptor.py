@@ -37,10 +37,12 @@ from django.utils import timezone
 from wiregraph_apps.common.conf import get_config, get_max_body_size
 from wiregraph_apps.common.tenancy import get_current_tenant
 from wiregraph_apps.detection.allowlist import filter_matches
+from wiregraph_apps.detection.classifier import classify_for_event
 from wiregraph_apps.detection.models import DataAsset, DataEvent
 from wiregraph_apps.detection.regex_scanner import RegexScanner, redact
 from wiregraph_apps.detection.signals import new_data_asset_discovered
 from wiregraph_apps.egress.signals import egress_pii_leak
+from wiregraph_apps.sinks import resolve_sink, sensitivity_for
 
 logger = logging.getLogger(__name__)
 
@@ -137,10 +139,18 @@ def _record_egress(prepared_request, response) -> None:
 
     now = timezone.now()
     with mark_internal_call():
+        sink_info = resolve_sink(host, tenant)
         service, created = ExternalService.objects.get_or_create(
             tenant=tenant,
             domain=host,
-            defaults={"name": host, "first_seen_at": now, "last_seen_at": now},
+            defaults={
+                "name": sink_info.display_name or host,
+                "first_seen_at": now,
+                "last_seen_at": now,
+                "category": sink_info.category,
+                "trust_tier": sink_info.trust_tier,
+                "accepts_assets": sink_info.accepts_assets,
+            },
         )
         if not created:
             ExternalService.objects.filter(pk=service.pk).update(last_seen_at=now)
@@ -158,7 +168,7 @@ def _record_egress(prepared_request, response) -> None:
         if "application/x-www-form-urlencoded" in content_type.lower():
             body_text = unquote_plus(body_text)
 
-        matches = filter_matches(tenant, _scanner.scan(body_text), endpoint)
+        matches = filter_matches(tenant, _scanner.scan(body_text), endpoint, host)
         if not matches:
             return
 
@@ -172,7 +182,10 @@ def _record_egress(prepared_request, response) -> None:
                     asset, created = DataAsset.objects.get_or_create(
                         tenant=tenant,
                         name=match.asset_name,
-                        defaults={"label": match.asset_name.replace("_", " ").title()},
+                        defaults={
+                            "label": match.asset_name.replace("_", " ").title(),
+                            "sensitivity_level": sensitivity_for(match.asset_name),
+                        },
                     )
                     asset_cache[match.asset_name] = asset
                     if created:
@@ -189,6 +202,15 @@ def _record_egress(prepared_request, response) -> None:
                     confidence=match.confidence,
                     timestamp=now,
                 )
+                try:
+                    outcome, reason = classify_for_event(tenant, event, service)
+                    DataEvent.objects.filter(pk=event.pk).update(
+                        outcome=outcome, decision_reason=reason
+                    )
+                    event.outcome = outcome
+                    event.decision_reason = reason
+                except Exception:
+                    logger.exception("wiregraph: classifier failed on egress event")
                 created_events.append(event)
 
     for asset in new_assets:

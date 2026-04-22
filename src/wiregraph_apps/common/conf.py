@@ -20,6 +20,8 @@ DEFAULTS = {
     "DISABLE_BUILTIN_ALERTS": False,
     "ADMIN_SITE": "django.contrib.admin.site",
     "CUSTOM_PATTERNS": [],
+    "LLM_POLICY": "strict",
+    "SINK_OVERRIDES": {},
 }
 
 
@@ -41,6 +43,8 @@ class WiregraphSettings(TypedDict, total=False):
     DISABLE_BUILTIN_ALERTS: bool
     ADMIN_SITE: str
     CUSTOM_PATTERNS: list[dict]
+    LLM_POLICY: str
+    SINK_OVERRIDES: dict
 
 
 def get_config(key):
@@ -92,3 +96,11 @@ def get_allowlisted_fields() -> list[str]:
 
 def get_custom_patterns() -> list[dict]:
     return list(get_config("CUSTOM_PATTERNS"))
+
+
+def get_llm_policy() -> str:
+    return str(get_config("LLM_POLICY"))
+
+
+def get_sink_overrides() -> dict:
+    return dict(get_config("SINK_OVERRIDES"))

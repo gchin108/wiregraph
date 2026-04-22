@@ -14,9 +14,11 @@ from django.db import transaction
 from django.utils import timezone
 
 from wiregraph_apps.detection.allowlist import filter_matches
+from wiregraph_apps.detection.classifier import classify_for_event
 from wiregraph_apps.detection.models import DataAsset, DataEvent
 from wiregraph_apps.detection.regex_scanner import Match, redact
 from wiregraph_apps.detection.signals import new_data_asset_discovered, pii_detected
+from wiregraph_apps.sinks import sensitivity_for
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +33,11 @@ def persist_matches(
     detection_method: str,
     request_id: str = "",
     request=None,
+    external_service=None,
 ) -> list[DataEvent]:
     """Filter, coalesce, and persist matches. Returns the created ``DataEvent`` rows."""
-    filtered = filter_matches(tenant, list(matches), endpoint)
+    host = external_service.domain if external_service is not None else ""
+    filtered = filter_matches(tenant, list(matches), endpoint, host)
     if not filtered:
         return []
 
@@ -50,7 +54,10 @@ def persist_matches(
             asset, created = DataAsset.objects.get_or_create(
                 tenant=tenant,
                 name=asset_name,
-                defaults={"label": asset_name.replace("_", " ").title()},
+                defaults={
+                    "label": asset_name.replace("_", " ").title(),
+                    "sensitivity_level": sensitivity_for(asset_name),
+                },
             )
             if created:
                 new_assets.append(asset)
@@ -59,6 +66,7 @@ def persist_matches(
                 DataEvent(
                     tenant=tenant,
                     data_asset=asset,
+                    external_service=external_service,
                     direction=direction,
                     endpoint=endpoint,
                     method=method,
@@ -71,6 +79,18 @@ def persist_matches(
                 )
             )
         created_events = DataEvent.objects.bulk_create(events)
+
+        for event in created_events:
+            try:
+                outcome, reason = classify_for_event(tenant, event, external_service)
+            except Exception:
+                logger.exception("wiregraph: classifier failed; leaving defaults")
+                continue
+            event.outcome = outcome
+            event.decision_reason = reason
+        DataEvent.objects.bulk_update(
+            created_events, ["outcome", "decision_reason"]
+        )
 
     for asset in new_assets:
         new_data_asset_discovered.send(

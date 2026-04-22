@@ -2,8 +2,10 @@ from django.db import models
 
 from wiregraph_apps.common.models import TenantScopedModel
 from wiregraph_apps.constants import (
+    ALLOWLIST_SOURCE_CHOICES,
     DETECTION_METHOD_CHOICES,
     DIRECTION_CHOICES,
+    OUTCOME_CHOICES,
     SENSITIVITY_CHOICES,
 )
 
@@ -58,6 +60,17 @@ class DataEvent(TenantScopedModel):
         help_text="Optional correlation ID for grouping events from a single request",
     )
     timestamp = models.DateTimeField(help_text="When the PII was observed")
+    outcome = models.CharField(
+        max_length=20,
+        choices=OUTCOME_CHOICES,
+        default="expected",
+        help_text="Deterministic classification of (asset, sink) — see detection.classifier.",
+    )
+    decision_reason = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Machine-parseable 'namespace:detail' reason emitted by the classifier.",
+    )
 
     class Meta(TenantScopedModel.Meta):
         verbose_name = "Data Event"
@@ -82,6 +95,22 @@ class AllowlistRule(TenantScopedModel):
         blank=True,
         help_text="Optional endpoint path prefix. Empty string matches all endpoints.",
     )
+    domain = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Exact host match, e.g. 'api.stripe.com'.",
+    )
+    domain_suffix = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Suffix host match, e.g. '.stripe.com' or 'stripe.com'.",
+    )
+    source = models.CharField(
+        max_length=20,
+        choices=ALLOWLIST_SOURCE_CHOICES,
+        default="manual",
+        help_text="How this rule was created — 'manual' from API/admin, 'feedback' from user verdicts.",
+    )
     reason = models.CharField(
         max_length=255,
         blank=True,
@@ -89,7 +118,9 @@ class AllowlistRule(TenantScopedModel):
     )
 
     class Meta(TenantScopedModel.Meta):
-        unique_together = [("tenant", "asset_name", "endpoint_prefix")]
+        unique_together = [
+            ("tenant", "asset_name", "endpoint_prefix", "domain", "domain_suffix"),
+        ]
         verbose_name = "Allowlist Rule"
         verbose_name_plural = "Allowlist Rules"
         indexes = [
