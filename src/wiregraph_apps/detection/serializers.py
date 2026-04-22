@@ -35,6 +35,15 @@ class AllowlistRuleSerializer(serializers.ModelSerializer):
 class DataEventSerializer(serializers.ModelSerializer):
     data_asset = serializers.SlugRelatedField(slug_field="name", read_only=True)
     data_asset_label = serializers.CharField(source="data_asset.label", read_only=True)
+    external_service_id = serializers.PrimaryKeyRelatedField(
+        source="external_service", read_only=True
+    )
+    external_service_name = serializers.CharField(
+        source="external_service.name", read_only=True, default=None
+    )
+    external_service_domain = serializers.CharField(
+        source="external_service.domain", read_only=True, default=None
+    )
 
     class Meta:
         model = DataEvent
@@ -51,5 +60,8 @@ class DataEventSerializer(serializers.ModelSerializer):
             "match_count",
             "request_id",
             "timestamp",
+            "external_service_id",
+            "external_service_name",
+            "external_service_domain",
         ]
         read_only_fields = fields

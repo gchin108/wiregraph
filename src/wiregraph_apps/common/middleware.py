@@ -17,6 +17,7 @@ import logging
 
 from django.contrib.auth.models import AnonymousUser
 from django.utils.functional import SimpleLazyObject
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 
@@ -38,12 +39,12 @@ class JWTAuthMiddleware:
         header = self._authenticator.get_header(request)
         if header is None:
             return AnonymousUser()
-        raw_token = self._authenticator.get_raw_token(header)
-        if raw_token is None:
-            return AnonymousUser()
         try:
+            raw_token = self._authenticator.get_raw_token(header)
+            if raw_token is None:
+                return AnonymousUser()
             validated = self._authenticator.get_validated_token(raw_token)
             return self._authenticator.get_user(validated)
-        except (InvalidToken, TokenError) as exc:
+        except (InvalidToken, TokenError, AuthenticationFailed) as exc:
             logger.debug("wiregraph: JWT auth failed in middleware: %s", exc)
             return AnonymousUser()

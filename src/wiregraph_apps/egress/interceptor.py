@@ -29,7 +29,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import threading
-from urllib.parse import urlsplit
+from urllib.parse import unquote_plus, urlsplit
 
 from django.db import transaction
 from django.utils import timezone
@@ -151,6 +151,12 @@ def _record_egress(prepared_request, response) -> None:
 
         method = getattr(prepared_request, "method", "") or ""
         endpoint = urlsplit(url).path or "/"
+
+        content_type = (getattr(prepared_request, "headers", None) or {}).get(
+            "Content-Type", ""
+        )
+        if "application/x-www-form-urlencoded" in content_type.lower():
+            body_text = unquote_plus(body_text)
 
         matches = filter_matches(tenant, _scanner.scan(body_text), endpoint)
         if not matches:
