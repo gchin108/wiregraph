@@ -41,6 +41,11 @@ WIREGRAPH: WiregraphSettings = {
 | `TENANT_MODEL` | `str` | `"tenants.Tenant"` | `"app_label.Model"` reference for the tenant model; used when a custom resolver needs `apps.get_model()`. |
 | `DISABLE_BUILTIN_ALERTS` | `bool` | `False` | When `True`, the bundled webhook receivers (`alert_on_pii_detected`, `alert_on_new_asset`, `alert_on_egress_leak`) short-circuit. Use when you wire your own Slack/PagerDuty handlers and don't want the built-ins firing. |
 | `ADMIN_SITE` | `str` | `"django.contrib.admin.site"` | Dotted path to the `AdminSite` instance that should host the WireGraph dashboard URL. Override when you run a custom AdminSite. |
+| `LLM_POLICY` | `str` | `"strict"` | Classifier policy for LLM sinks. `"strict"`: medium+ PII → LLM is `prohibited`. `"relaxed"`: only high/critical. See classification proposal §3. |
+| `SINK_OVERRIDES` | `dict` | `{}` | Merged over the built-in sink catalog (`sinks.py`) at startup. Use to add or reclassify destinations. Shape: `{"api.example.com": {"category": "llm", "trust_tier": "known", "accepts_assets": []}}`. |
+| `CONFIDENCE_LOW` | `float` | `0.5` | Below this detector confidence, the shadow/effective alert level downgrades (`suspicious`→`acceptable`, `prohibited`→`suspicious`). Classification itself is unchanged. |
+| `CONFIDENCE_HIGH` | `float` | `0.9` | Reserved for escalation policies. Not yet load-bearing. |
+| `SHADOW_MODE` | `bool` | `True` | Phase 2 of the classification rollout. When `True`, every classified event gets `shadow_alert_level` computed and logged (`wiregraph.shadow`) and a `ShadowDecisionCounter` row is incremented. Alerting is unchanged — this is pure telemetry. Browse via the admin or `GET /api/v1/reporting/shadow/?days=7`. |
 
 ## Related reading
 

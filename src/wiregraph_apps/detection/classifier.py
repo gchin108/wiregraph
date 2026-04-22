@@ -12,9 +12,12 @@ an input here — confidence gates *alerting*, not *classification* (proposal
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 
 from wiregraph_apps.sinks import CATEGORY_DEFAULTS
+
+_shadow_logger = logging.getLogger("wiregraph.shadow")
 
 
 @dataclass(frozen=True)
@@ -156,6 +159,98 @@ def classify_for_event(tenant, data_event, external_service) -> tuple[Outcome, s
     policy = Policy(llm_mode=get_llm_policy())
 
     return classify(asset_spec, service_spec, rule_hit, policy, is_new_flow=is_new)
+
+
+AlertLevel = str  # "prohibited" | "suspicious" | "acceptable" | "expected"
+
+
+def effective_alert_level(
+    outcome: Outcome,
+    confidence: float,
+    thresholds: tuple[float, float] | None = None,
+) -> AlertLevel:
+    """Map a classification outcome to the level receivers would dispatch on.
+
+    Classification is deterministic; this is where detector confidence gates
+    whether a given outcome escalates to a human (proposal §4).
+
+    - Below ``low`` threshold: downgrade noisy matches — ``suspicious`` →
+      ``acceptable``, ``prohibited`` → ``suspicious``.
+    - At/above ``high`` threshold: no downgrades (future hook for escalation).
+    - ``expected`` and ``acceptable`` are never escalated by confidence alone.
+    """
+    if thresholds is None:
+        from wiregraph_apps.common.conf import get_confidence_thresholds
+        thresholds = get_confidence_thresholds()
+    low, _high = thresholds
+
+    if confidence < low:
+        if outcome == "suspicious":
+            return "acceptable"
+        if outcome == "prohibited":
+            return "suspicious"
+    return outcome
+
+
+def _increment_shadow_counter(event, level: str) -> None:
+    """Upsert the daily rollup row. Best-effort — failures are swallowed."""
+    from django.db.models import F
+
+    from wiregraph_apps.reporting.models import ShadowDecisionCounter
+
+    day = event.timestamp.date() if getattr(event, "timestamp", None) else None
+    tenant_id = getattr(event, "tenant_id", None)
+    if day is None or tenant_id is None:
+        return
+
+    obj, created = ShadowDecisionCounter.objects.get_or_create(
+        tenant_id=tenant_id,
+        day=day,
+        outcome=event.outcome,
+        shadow_alert_level=level,
+        defaults={"count": 1},
+    )
+    if not created:
+        ShadowDecisionCounter.objects.filter(pk=obj.pk).update(count=F("count") + 1)
+
+
+def apply_shadow_decision(event) -> str:
+    """Shadow-mode side effects for a classified event (proposal §9.2).
+
+    Computes ``effective_alert_level`` from the event's stored outcome/confidence,
+    sets ``event.shadow_alert_level`` in-memory, and emits a structured log line.
+    Caller is responsible for persisting the field. No-op when ``SHADOW_MODE`` is
+    off. Returns the computed level (or ``""`` if disabled).
+    """
+    from wiregraph_apps.common.conf import is_shadow_mode
+
+    if not is_shadow_mode():
+        return ""
+
+    level = effective_alert_level(event.outcome, event.confidence)
+    event.shadow_alert_level = level
+
+    service = getattr(event, "external_service", None)
+    asset = getattr(event, "data_asset", None)
+    _shadow_logger.info(
+        "wiregraph.shadow event_id=%s tenant=%s outcome=%s level=%s "
+        "confidence=%.3f reason=%s asset=%s service=%s",
+        getattr(event, "pk", None),
+        getattr(event, "tenant_id", None),
+        event.outcome,
+        level,
+        float(event.confidence or 0.0),
+        event.decision_reason or "",
+        getattr(asset, "name", "") if asset is not None else "",
+        getattr(service, "domain", "") if service is not None else "",
+    )
+
+    try:
+        _increment_shadow_counter(event, level)
+    except Exception:
+        _shadow_logger.exception("wiregraph: shadow counter increment failed")
+
+    return level
 
 
 def check_is_new_flow(tenant, data_asset, external_service) -> bool:

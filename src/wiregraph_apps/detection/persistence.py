@@ -14,7 +14,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from wiregraph_apps.detection.allowlist import filter_matches
-from wiregraph_apps.detection.classifier import classify_for_event
+from wiregraph_apps.detection.classifier import apply_shadow_decision, classify_for_event
 from wiregraph_apps.detection.models import DataAsset, DataEvent
 from wiregraph_apps.detection.regex_scanner import Match, redact
 from wiregraph_apps.detection.signals import new_data_asset_discovered, pii_detected
@@ -88,8 +88,12 @@ def persist_matches(
                 continue
             event.outcome = outcome
             event.decision_reason = reason
+            try:
+                apply_shadow_decision(event)
+            except Exception:
+                logger.exception("wiregraph: shadow decision failed")
         DataEvent.objects.bulk_update(
-            created_events, ["outcome", "decision_reason"]
+            created_events, ["outcome", "decision_reason", "shadow_alert_level"]
         )
 
     for asset in new_assets:

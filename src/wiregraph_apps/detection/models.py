@@ -71,6 +71,13 @@ class DataEvent(TenantScopedModel):
         blank=True,
         help_text="Machine-parseable 'namespace:detail' reason emitted by the classifier.",
     )
+    shadow_alert_level = models.CharField(
+        max_length=20,
+        choices=OUTCOME_CHOICES,
+        blank=True,
+        default="",
+        help_text="Phase 2 shadow: level receivers *would* dispatch at under the new policy.",
+    )
 
     class Meta(TenantScopedModel.Meta):
         verbose_name = "Data Event"

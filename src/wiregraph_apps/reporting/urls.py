@@ -1,3 +1,7 @@
-from django.urls import path  # noqa: F401
+from django.urls import path
 
-urlpatterns = []
+from wiregraph_apps.reporting.views import ShadowReportView
+
+urlpatterns = [
+    path("shadow/", ShadowReportView.as_view(), name="reporting-shadow"),
+]

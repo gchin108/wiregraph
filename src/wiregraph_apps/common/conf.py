@@ -22,6 +22,9 @@ DEFAULTS = {
     "CUSTOM_PATTERNS": [],
     "LLM_POLICY": "strict",
     "SINK_OVERRIDES": {},
+    "CONFIDENCE_LOW": 0.5,
+    "CONFIDENCE_HIGH": 0.9,
+    "SHADOW_MODE": True,
 }
 
 
@@ -45,6 +48,9 @@ class WiregraphSettings(TypedDict, total=False):
     CUSTOM_PATTERNS: list[dict]
     LLM_POLICY: str
     SINK_OVERRIDES: dict
+    CONFIDENCE_LOW: float
+    CONFIDENCE_HIGH: float
+    SHADOW_MODE: bool
 
 
 def get_config(key):
@@ -104,3 +110,11 @@ def get_llm_policy() -> str:
 
 def get_sink_overrides() -> dict:
     return dict(get_config("SINK_OVERRIDES"))
+
+
+def get_confidence_thresholds() -> tuple[float, float]:
+    return float(get_config("CONFIDENCE_LOW")), float(get_config("CONFIDENCE_HIGH"))
+
+
+def is_shadow_mode() -> bool:
+    return bool(get_config("SHADOW_MODE"))

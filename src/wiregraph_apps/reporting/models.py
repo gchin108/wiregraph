@@ -1,6 +1,7 @@
 from django.db import models
 
 from wiregraph_apps.common.models import TenantScopedModel
+from wiregraph_apps.constants import OUTCOME_CHOICES
 
 
 class ProcessingActivity(TenantScopedModel):
@@ -38,3 +39,28 @@ class ProcessingActivity(TenantScopedModel):
 
     def __str__(self):
         return self.name
+
+
+class ShadowDecisionCounter(TenantScopedModel):
+    """Daily rollup of shadow-mode classifications (proposal §9.2).
+
+    Counts events bucketed by ``(tenant, day, outcome, shadow_alert_level)`` so
+    the noise-delta between legacy and new-policy alerting can be answered in
+    one query even after ``DataEvent`` retention purges the underlying rows.
+    """
+
+    day = models.DateField(help_text="UTC date the classified event belongs to.")
+    outcome = models.CharField(max_length=20, choices=OUTCOME_CHOICES)
+    shadow_alert_level = models.CharField(max_length=20, choices=OUTCOME_CHOICES)
+    count = models.PositiveIntegerField(default=0)
+
+    class Meta(TenantScopedModel.Meta):
+        unique_together = [("tenant", "day", "outcome", "shadow_alert_level")]
+        indexes = [
+            models.Index(fields=["tenant", "day"]),
+        ]
+        verbose_name = "Shadow Decision Counter"
+        verbose_name_plural = "Shadow Decision Counters"
+
+    def __str__(self):
+        return f"{self.day} {self.outcome}→{self.shadow_alert_level}: {self.count}"

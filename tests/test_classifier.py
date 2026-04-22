@@ -10,6 +10,7 @@ from wiregraph_apps.detection.classifier import (
     ServiceSpec,
     classify,
     effective_accepts,
+    effective_alert_level,
 )
 
 
@@ -176,3 +177,38 @@ def test_internal_category_accepts_everything_via_wildcard():
     )
     assert outcome == "expected"
     assert reason == "category:internal_accepts_ssn"
+
+
+# --- effective_alert_level (§4) -------------------------------------------
+
+THRESH = (0.5, 0.9)
+
+
+def test_high_confidence_prohibited_stays_prohibited():
+    assert effective_alert_level("prohibited", 0.95, THRESH) == "prohibited"
+
+
+def test_high_confidence_suspicious_stays_suspicious():
+    assert effective_alert_level("suspicious", 0.9, THRESH) == "suspicious"
+
+
+def test_low_confidence_prohibited_downgrades_to_suspicious():
+    assert effective_alert_level("prohibited", 0.3, THRESH) == "suspicious"
+
+
+def test_low_confidence_suspicious_downgrades_to_acceptable():
+    assert effective_alert_level("suspicious", 0.49, THRESH) == "acceptable"
+
+
+def test_confidence_at_low_threshold_is_not_downgraded():
+    assert effective_alert_level("prohibited", 0.5, THRESH) == "prohibited"
+
+
+def test_expected_and_acceptable_never_escalated_by_confidence():
+    assert effective_alert_level("expected", 0.99, THRESH) == "expected"
+    assert effective_alert_level("acceptable", 0.99, THRESH) == "acceptable"
+
+
+def test_low_confidence_does_not_promote_acceptable_or_expected():
+    assert effective_alert_level("expected", 0.1, THRESH) == "expected"
+    assert effective_alert_level("acceptable", 0.1, THRESH) == "acceptable"

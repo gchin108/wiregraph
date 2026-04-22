@@ -37,7 +37,7 @@ from django.utils import timezone
 from wiregraph_apps.common.conf import get_config, get_max_body_size
 from wiregraph_apps.common.tenancy import get_current_tenant
 from wiregraph_apps.detection.allowlist import filter_matches
-from wiregraph_apps.detection.classifier import classify_for_event
+from wiregraph_apps.detection.classifier import apply_shadow_decision, classify_for_event
 from wiregraph_apps.detection.models import DataAsset, DataEvent
 from wiregraph_apps.detection.regex_scanner import RegexScanner, redact
 from wiregraph_apps.detection.signals import new_data_asset_discovered
@@ -204,11 +204,17 @@ def _record_egress(prepared_request, response) -> None:
                 )
                 try:
                     outcome, reason = classify_for_event(tenant, event, service)
-                    DataEvent.objects.filter(pk=event.pk).update(
-                        outcome=outcome, decision_reason=reason
-                    )
                     event.outcome = outcome
                     event.decision_reason = reason
+                    try:
+                        apply_shadow_decision(event)
+                    except Exception:
+                        logger.exception("wiregraph: shadow decision failed")
+                    DataEvent.objects.filter(pk=event.pk).update(
+                        outcome=outcome,
+                        decision_reason=reason,
+                        shadow_alert_level=event.shadow_alert_level,
+                    )
                 except Exception:
                     logger.exception("wiregraph: classifier failed on egress event")
                 created_events.append(event)
