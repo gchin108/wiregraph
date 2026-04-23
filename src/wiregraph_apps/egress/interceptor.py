@@ -37,10 +37,14 @@ from django.utils import timezone
 from wiregraph_apps.common.conf import get_config, get_max_body_size
 from wiregraph_apps.common.tenancy import get_current_tenant
 from wiregraph_apps.detection.allowlist import filter_matches
-from wiregraph_apps.detection.classifier import apply_shadow_decision, classify_for_event
+from wiregraph_apps.detection.classifier import (
+    apply_shadow_decision,
+    classify_for_event,
+    effective_alert_level,
+)
 from wiregraph_apps.detection.models import DataAsset, DataEvent
 from wiregraph_apps.detection.regex_scanner import RegexScanner, redact
-from wiregraph_apps.detection.signals import new_data_asset_discovered
+from wiregraph_apps.detection.signals import event_classified, new_data_asset_discovered
 from wiregraph_apps.egress.signals import egress_pii_leak
 from wiregraph_apps.sinks import resolve_sink, sensitivity_for
 
@@ -226,11 +230,33 @@ def _record_egress(prepared_request, response) -> None:
             tenant=tenant,
         )
     for event in created_events:
-        egress_pii_leak.send(
-            sender=DataEvent,
-            data_event=event,
-            external_service=service,
-        )
+        try:
+            level = effective_alert_level(
+                event.outcome or "", float(event.confidence or 0.0)
+            )
+        except Exception:
+            logger.exception("wiregraph: effective_alert_level failed")
+            level = event.outcome or ""
+
+        # Legacy back-compat: egress_pii_leak fires only on effective prohibited
+        # so existing subscribers keep paging on real leaks and stay quiet otherwise.
+        if level == "prohibited":
+            egress_pii_leak.send(
+                sender=DataEvent,
+                data_event=event,
+                external_service=service,
+            )
+        try:
+            event_classified.send(
+                sender=DataEvent,
+                data_event=event,
+                external_service=service,
+                effective_level=level,
+                confidence=float(event.confidence or 0.0),
+                reason=event.decision_reason or "",
+            )
+        except Exception:
+            logger.exception("wiregraph: event_classified dispatch failed")
 
 
 def _extract_body(prepared_request) -> str | None:

@@ -1,7 +1,8 @@
 from django.urls import path
 
-from wiregraph_apps.reporting.views import ShadowReportView
+from wiregraph_apps.reporting.views import DigestReportView, ShadowReportView
 
 urlpatterns = [
     path("shadow/", ShadowReportView.as_view(), name="reporting-shadow"),
+    path("digest/", DigestReportView.as_view(), name="reporting-digest"),
 ]

@@ -24,7 +24,12 @@ DEFAULTS = {
     "SINK_OVERRIDES": {},
     "CONFIDENCE_LOW": 0.5,
     "CONFIDENCE_HIGH": 0.9,
-    "SHADOW_MODE": True,
+    "SHADOW_MODE": False,
+    "PAGER_WEBHOOK_URL": None,
+    "DEDUP_WINDOW_PROHIBITED_SECONDS": 300,
+    "DEDUP_WINDOW_SUSPICIOUS_SECONDS": 3600,
+    "ESCALATION_SUSPICIOUS_COUNT": 10,
+    "ESCALATION_WINDOW_SECONDS": 86400,
 }
 
 
@@ -51,6 +56,11 @@ class WiregraphSettings(TypedDict, total=False):
     CONFIDENCE_LOW: float
     CONFIDENCE_HIGH: float
     SHADOW_MODE: bool
+    PAGER_WEBHOOK_URL: str | None
+    DEDUP_WINDOW_PROHIBITED_SECONDS: int
+    DEDUP_WINDOW_SUSPICIOUS_SECONDS: int
+    ESCALATION_SUSPICIOUS_COUNT: int
+    ESCALATION_WINDOW_SECONDS: int
 
 
 def get_config(key):
@@ -118,3 +128,19 @@ def get_confidence_thresholds() -> tuple[float, float]:
 
 def is_shadow_mode() -> bool:
     return bool(get_config("SHADOW_MODE"))
+
+
+def get_dedup_windows() -> tuple[int, int]:
+    """Return ``(prohibited_seconds, suspicious_seconds)`` dedup windows."""
+    return (
+        int(get_config("DEDUP_WINDOW_PROHIBITED_SECONDS")),
+        int(get_config("DEDUP_WINDOW_SUSPICIOUS_SECONDS")),
+    )
+
+
+def get_escalation_config() -> tuple[int, int]:
+    """Return ``(count_threshold, window_seconds)`` for suspicious→prohibited escalation."""
+    return (
+        int(get_config("ESCALATION_SUSPICIOUS_COUNT")),
+        int(get_config("ESCALATION_WINDOW_SECONDS")),
+    )

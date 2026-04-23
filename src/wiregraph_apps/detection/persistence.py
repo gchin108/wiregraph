@@ -14,10 +14,18 @@ from django.db import transaction
 from django.utils import timezone
 
 from wiregraph_apps.detection.allowlist import filter_matches
-from wiregraph_apps.detection.classifier import apply_shadow_decision, classify_for_event
+from wiregraph_apps.detection.classifier import (
+    apply_shadow_decision,
+    classify_for_event,
+    effective_alert_level,
+)
 from wiregraph_apps.detection.models import DataAsset, DataEvent
 from wiregraph_apps.detection.regex_scanner import Match, redact
-from wiregraph_apps.detection.signals import new_data_asset_discovered, pii_detected
+from wiregraph_apps.detection.signals import (
+    event_classified,
+    new_data_asset_discovered,
+    pii_detected,
+)
 from wiregraph_apps.sinks import sensitivity_for
 
 logger = logging.getLogger(__name__)
@@ -103,9 +111,30 @@ def persist_matches(
             tenant=tenant,
         )
     for event in created_events:
+        try:
+            level = effective_alert_level(
+                event.outcome or "", float(event.confidence or 0.0)
+            )
+        except Exception:
+            logger.exception("wiregraph: effective_alert_level failed")
+            level = event.outcome or ""
+
+        # pii_detected is an audit signal — "PII was observed" — and fires on
+        # every detection so subscribers can log/track regardless of outcome.
         pii_detected.send(
             sender=DataEvent,
             data_event=event,
             request=request,
         )
+        try:
+            event_classified.send(
+                sender=DataEvent,
+                data_event=event,
+                external_service=external_service,
+                effective_level=level,
+                confidence=float(event.confidence or 0.0),
+                reason=event.decision_reason or "",
+            )
+        except Exception:
+            logger.exception("wiregraph: event_classified dispatch failed")
     return created_events

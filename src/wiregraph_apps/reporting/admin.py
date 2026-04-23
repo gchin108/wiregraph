@@ -1,6 +1,11 @@
 from django.contrib import admin
 
-from .models import ProcessingActivity, ShadowDecisionCounter
+from .models import (
+    AlertDigestEntry,
+    EscalationCounter,
+    ProcessingActivity,
+    ShadowDecisionCounter,
+)
 
 
 @admin.register(ProcessingActivity)
@@ -18,6 +23,60 @@ class ShadowDecisionCounterAdmin(admin.ModelAdmin):
     list_filter = ("tenant", "day", "outcome", "shadow_alert_level")
     ordering = ("-day", "tenant_id")
     readonly_fields = ("id", "tenant", "day", "outcome", "shadow_alert_level", "count", "created_at", "updated_at")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(EscalationCounter)
+class EscalationCounterAdmin(admin.ModelAdmin):
+    list_display = ("day", "tenant", "count")
+    list_filter = ("tenant", "day")
+    ordering = ("-day", "tenant_id")
+    readonly_fields = ("id", "tenant", "day", "count", "created_at", "updated_at")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AlertDigestEntry)
+class AlertDigestEntryAdmin(admin.ModelAdmin):
+    list_display = (
+        "day",
+        "tenant",
+        "outcome",
+        "asset_name",
+        "service_domain",
+        "count",
+        "last_seen_at",
+    )
+    list_filter = ("tenant", "day", "outcome")
+    ordering = ("-day", "-count")
+    readonly_fields = (
+        "id",
+        "tenant",
+        "day",
+        "outcome",
+        "asset_name",
+        "service_domain",
+        "count",
+        "first_seen_at",
+        "last_seen_at",
+        "created_at",
+        "updated_at",
+    )
 
     def has_add_permission(self, request):
         return False

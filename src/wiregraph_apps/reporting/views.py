@@ -16,7 +16,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from wiregraph_apps.common.tenancy import resolve_tenant
-from wiregraph_apps.reporting.models import ShadowDecisionCounter
+from wiregraph_apps.reporting.models import (
+    AlertDigestEntry,
+    EscalationCounter,
+    ShadowDecisionCounter,
+)
 
 _ALERTING_LEVELS = {"prohibited", "suspicious"}
 _DEFAULT_DAYS = 7
@@ -62,6 +66,12 @@ class ShadowReportView(APIView):
                 by_level.get(r["shadow_alert_level"], 0) + r["count"]
             )
 
+        escalated = (
+            EscalationCounter.objects.filter(tenant=tenant, day__gte=since)
+            .values_list("count", flat=True)
+        )
+        suspicious_escalated_total = sum(escalated)
+
         return Response(
             {
                 "window_days": days,
@@ -72,6 +82,7 @@ class ShadowReportView(APIView):
                     "legacy_would_alert": total,
                     "shadow_would_alert": shadow_alerts,
                     "downgrades": downgrades,
+                    "suspicious_escalated_total": suspicious_escalated_total,
                     "by_outcome": by_outcome,
                     "by_shadow_level": by_level,
                 },
@@ -81,6 +92,58 @@ class ShadowReportView(APIView):
                         "outcome": r["outcome"],
                         "shadow_alert_level": r["shadow_alert_level"],
                         "count": r["count"],
+                    }
+                    for r in rows
+                ],
+            }
+        )
+
+
+class DigestReportView(APIView):
+    """Daily digest of ``acceptable`` outcomes for the caller's tenant.
+
+    Query params:
+      - ``days`` (int, default 1, max 90): trailing window.
+    """
+
+    def get(self, request):
+        tenant = resolve_tenant(request)
+        if tenant is None:
+            raise PermissionDenied("No tenant membership for this user.")
+
+        try:
+            days = int(request.query_params.get("days", 1))
+        except (TypeError, ValueError):
+            days = 1
+        days = max(1, min(days, _MAX_DAYS))
+
+        since = (timezone.now() - timedelta(days=days)).date()
+        rows = list(
+            AlertDigestEntry.objects.filter(tenant=tenant, day__gte=since)
+            .order_by("-day", "-count")
+            .values(
+                "day",
+                "outcome",
+                "asset_name",
+                "service_domain",
+                "count",
+                "first_seen_at",
+                "last_seen_at",
+            )
+        )
+        return Response(
+            {
+                "window_days": days,
+                "since": since.isoformat(),
+                "entries": [
+                    {
+                        "day": r["day"].isoformat(),
+                        "outcome": r["outcome"],
+                        "asset": r["asset_name"],
+                        "service": r["service_domain"],
+                        "count": r["count"],
+                        "first_seen_at": r["first_seen_at"].isoformat(),
+                        "last_seen_at": r["last_seen_at"].isoformat(),
                     }
                     for r in rows
                 ],

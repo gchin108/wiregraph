@@ -64,3 +64,53 @@ class ShadowDecisionCounter(TenantScopedModel):
 
     def __str__(self):
         return f"{self.day} {self.outcome}→{self.shadow_alert_level}: {self.count}"
+
+
+class EscalationCounter(TenantScopedModel):
+    """Daily count of suspicious→prohibited escalations (proposal §5).
+
+    Feeds the shadow report's ``suspicious_escalated_total`` metric which is
+    how ``ESCALATION_SUSPICIOUS_COUNT`` gets calibrated from real traffic.
+    """
+
+    day = models.DateField(help_text="UTC date the escalation fired on.")
+    count = models.PositiveIntegerField(default=0)
+
+    class Meta(TenantScopedModel.Meta):
+        unique_together = [("tenant", "day")]
+        indexes = [models.Index(fields=["tenant", "day"])]
+        verbose_name = "Escalation Counter"
+        verbose_name_plural = "Escalation Counters"
+
+    def __str__(self):
+        return f"{self.day}: {self.count}"
+
+
+class AlertDigestEntry(TenantScopedModel):
+    """Daily rollup for ``acceptable`` events (proposal §5 digest bucket).
+
+    One row per ``(tenant, day, outcome, asset_name, service_domain)``; callers
+    drive delivery via ``GET /api/v1/reporting/digest/``.
+    """
+
+    day = models.DateField()
+    outcome = models.CharField(max_length=20, choices=OUTCOME_CHOICES)
+    asset_name = models.CharField(max_length=64)
+    service_domain = models.CharField(max_length=255, blank=True)
+    count = models.PositiveIntegerField(default=0)
+    first_seen_at = models.DateTimeField()
+    last_seen_at = models.DateTimeField()
+
+    class Meta(TenantScopedModel.Meta):
+        unique_together = [
+            ("tenant", "day", "outcome", "asset_name", "service_domain"),
+        ]
+        indexes = [models.Index(fields=["tenant", "day"])]
+        verbose_name = "Alert Digest Entry"
+        verbose_name_plural = "Alert Digest Entries"
+
+    def __str__(self):
+        return (
+            f"{self.day} {self.outcome} {self.asset_name}→{self.service_domain}: "
+            f"{self.count}"
+        )
