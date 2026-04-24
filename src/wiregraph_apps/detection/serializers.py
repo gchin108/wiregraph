@@ -63,5 +63,7 @@ class DataEventSerializer(serializers.ModelSerializer):
             "external_service_id",
             "external_service_name",
             "external_service_domain",
+            "outcome",
+            "decision_reason",
         ]
         read_only_fields = fields

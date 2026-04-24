@@ -56,11 +56,6 @@ TRUST_TIER_CHOICES = [
     ("unknown", "Unknown"),
 ]
 
-ALLOWLIST_SOURCE_CHOICES = [
-    ("manual", "Manual"),
-    ("feedback", "Feedback"),
-]
-
 # Reasons emitted by detection.classifier.classify().
 # Namespaced as "<prefix>:<detail>" so UIs/filters can parse.
 # Some reasons are templated with category/asset — see classifier for the exact

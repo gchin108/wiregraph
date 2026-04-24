@@ -46,11 +46,6 @@ class Migration(migrations.Migration):
             field=models.CharField(blank=True, help_text="Suffix host match, e.g. '.stripe.com' or 'stripe.com'.", max_length=255),
         ),
         migrations.AddField(
-            model_name='allowlistrule',
-            name='source',
-            field=models.CharField(choices=[('manual', 'Manual'), ('feedback', 'Feedback')], default='manual', help_text="How this rule was created — 'manual' from API/admin, 'feedback' from user verdicts.", max_length=20),
-        ),
-        migrations.AddField(
             model_name='dataevent',
             name='decision_reason',
             field=models.CharField(blank=True, help_text="Machine-parseable 'namespace:detail' reason emitted by the classifier.", max_length=255),

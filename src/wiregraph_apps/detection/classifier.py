@@ -37,7 +37,6 @@ class ServiceSpec:
 @dataclass(frozen=True)
 class RuleHit:
     """An AllowlistRule matched — classification short-circuits to expected."""
-    source: str = "manual"  # "manual" | "feedback"
 
 
 @dataclass(frozen=True)
@@ -142,7 +141,7 @@ def classify_for_event(tenant, data_event, external_service) -> tuple[Outcome, s
         )
 
     rule = find_matching_rule(tenant, asset.name, data_event.endpoint, host)
-    rule_hit = RuleHit(source=rule.source) if rule is not None else None
+    rule_hit = RuleHit() if rule is not None else None
 
     is_new = False
     if external_service is not None:

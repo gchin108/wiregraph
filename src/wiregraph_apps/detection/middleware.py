@@ -30,6 +30,7 @@ from wiregraph_apps.common.tenancy import (
 )
 from wiregraph_apps.detection.persistence import persist_matches
 from wiregraph_apps.detection.regex_scanner import RegexScanner
+from wiregraph_apps.detection.tasks import enqueue_presidio_scan
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +135,7 @@ class PIIDetectionMiddleware:
                 request_id=request_id,
                 request=request,
             )
-        self._enqueue_presidio(
+        enqueue_presidio_scan(
             tenant=tenant,
             text=text,
             direction="inbound",
@@ -174,7 +175,7 @@ class PIIDetectionMiddleware:
                 request_id=request_id,
                 request=request,
             )
-        self._enqueue_presidio(
+        enqueue_presidio_scan(
             tenant=tenant,
             text=text,
             direction="outbound",
@@ -182,38 +183,3 @@ class PIIDetectionMiddleware:
             method=request.method or "",
             request_id=request_id,
         )
-
-    # ------------------------------------------------------------------
-    # Async Presidio enqueue
-    # ------------------------------------------------------------------
-
-    def _enqueue_presidio(
-        self,
-        *,
-        tenant,
-        text: str,
-        direction: str,
-        endpoint: str,
-        method: str,
-        request_id: str,
-    ) -> None:
-        if not get_config("ENABLE_PRESIDIO"):
-            return
-        if not text:
-            return
-        try:
-            from wiregraph_apps.detection.tasks import scan_payload_async
-        except ImportError:
-            logger.debug("wiregraph: celery not installed; skipping presidio enqueue")
-            return
-        try:
-            scan_payload_async.delay(
-                tenant_id=tenant.pk,
-                text=text,
-                direction=direction,
-                endpoint=endpoint,
-                method=method,
-                request_id=request_id,
-            )
-        except Exception:
-            logger.exception("wiregraph: failed to enqueue presidio scan")

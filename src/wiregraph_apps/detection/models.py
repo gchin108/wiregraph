@@ -2,7 +2,6 @@ from django.db import models
 
 from wiregraph_apps.common.models import TenantScopedModel
 from wiregraph_apps.constants import (
-    ALLOWLIST_SOURCE_CHOICES,
     DETECTION_METHOD_CHOICES,
     DIRECTION_CHOICES,
     OUTCOME_CHOICES,
@@ -111,12 +110,6 @@ class AllowlistRule(TenantScopedModel):
         max_length=255,
         blank=True,
         help_text="Suffix host match, e.g. '.stripe.com' or 'stripe.com'.",
-    )
-    source = models.CharField(
-        max_length=20,
-        choices=ALLOWLIST_SOURCE_CHOICES,
-        default="manual",
-        help_text="How this rule was created — 'manual' from API/admin, 'feedback' from user verdicts.",
     )
     reason = models.CharField(
         max_length=255,

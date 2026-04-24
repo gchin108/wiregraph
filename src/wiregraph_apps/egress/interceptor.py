@@ -45,6 +45,7 @@ from wiregraph_apps.detection.classifier import (
 from wiregraph_apps.detection.models import DataAsset, DataEvent
 from wiregraph_apps.detection.regex_scanner import RegexScanner, redact
 from wiregraph_apps.detection.signals import event_classified, new_data_asset_discovered
+from wiregraph_apps.detection.tasks import enqueue_presidio_scan
 from wiregraph_apps.egress.signals import egress_pii_leak
 from wiregraph_apps.sinks import resolve_sink, sensitivity_for
 
@@ -171,6 +172,15 @@ def _record_egress(prepared_request, response) -> None:
         )
         if "application/x-www-form-urlencoded" in content_type.lower():
             body_text = unquote_plus(body_text)
+
+        enqueue_presidio_scan(
+            tenant=tenant,
+            text=body_text,
+            direction="egress",
+            endpoint=endpoint,
+            method=method,
+            external_service_id=service.pk,
+        )
 
         matches = filter_matches(tenant, _scanner.scan(body_text), endpoint, host)
         if not matches:

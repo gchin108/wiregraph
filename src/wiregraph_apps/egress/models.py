@@ -1,7 +1,10 @@
 from django.db import models
 
 from wiregraph_apps.common.models import TenantScopedModel
-from wiregraph_apps.constants import SINK_CATEGORY_CHOICES, TRUST_TIER_CHOICES
+from wiregraph_apps.constants import (
+    SINK_CATEGORY_CHOICES,
+    TRUST_TIER_CHOICES,
+)
 
 
 class ExternalService(TenantScopedModel):

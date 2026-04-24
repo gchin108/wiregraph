@@ -35,7 +35,7 @@ def test_rule_hit_short_circuits_to_expected():
     outcome, reason = classify(
         _asset("email", "medium"),
         _service("llm"),
-        RuleHit(source="manual"),
+        RuleHit(),
         STRICT,
     )
     assert outcome == "expected"

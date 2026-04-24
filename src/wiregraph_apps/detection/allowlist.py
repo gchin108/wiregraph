@@ -12,8 +12,7 @@ Rule match precedence (most → least specific, per proposal §2):
     4. ``domain_suffix``
     5. ``endpoint_prefix`` only (legacy)
 
-Ties broken by ``source="manual"`` > ``source="feedback"``. Per-tenant rules
-are cached briefly to avoid a DB hit per request.
+Per-tenant rules are cached briefly to avoid a DB hit per request.
 """
 
 from __future__ import annotations
@@ -35,7 +34,6 @@ class _Rule:
     endpoint_prefix: str
     domain: str
     domain_suffix: str
-    source: str
 
 
 def _rules_cache_key(tenant) -> str:
@@ -60,10 +58,9 @@ def _load_rules(tenant) -> list[_Rule]:
             endpoint_prefix=ep or "",
             domain=d or "",
             domain_suffix=ds or "",
-            source=src or "manual",
         )
-        for a, ep, d, ds, src in AllowlistRule.objects.filter(tenant=tenant).values_list(
-            "asset_name", "endpoint_prefix", "domain", "domain_suffix", "source"
+        for a, ep, d, ds in AllowlistRule.objects.filter(tenant=tenant).values_list(
+            "asset_name", "endpoint_prefix", "domain", "domain_suffix"
         )
     ]
     cache.set(key, rules, _RULES_CACHE_TTL)
@@ -87,8 +84,6 @@ def _specificity(rule: _Rule) -> int:
         score += 20
     if rule.endpoint_prefix:
         score += 5
-    if rule.source == "manual":
-        score += 1  # tie-break
     return score
 
 
@@ -115,7 +110,6 @@ def find_matching_rule(
             endpoint_prefix="",
             domain="",
             domain_suffix="",
-            source="manual",
         )
 
     candidates = [
