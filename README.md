@@ -2,7 +2,7 @@
 
 **What sensitive user data is leaving your Django app — and where is it going?**
 
-Most teams can't answer that. Your API returns more than you think. Your OpenAI call ships customer emails to a third party. Your Stripe webhook echoes an SSN into a log line. Static analysis won't catch it. APM won't flag it. You find out when someone files a ticket — or when legal does.
+Most teams can't answer that. Your view returns more than you think. Your OpenAI call ships customer emails to a third party. Your Stripe webhook echoes an SSN into a log line. Static analysis won't catch it. APM won't flag it.
 
 Wiregraph is a **runtime PII leak detector** that sits inside your Django app and watches the traffic you're actually serving.
 
@@ -21,15 +21,16 @@ A user hits `/api/v1/support/ticket/`. Your view enriches the response with an O
 
 You didn't write code to log that. You didn't know it was happening. Now you do.
 
-## What Wiregraph gives you
+## What you get
 
-- **Runtime visibility** into every PII-bearing field crossing your app's boundary — inbound, outbound, and egress to third parties
-- **An audit trail** of which endpoints leak what, broken down by tenant
-- **Early warning** before a customer, auditor, or regulator finds it first
-- **Evidence for compliance** — exportable PDF/JSON reports of actual observed data flows
-- **Zero raw PII at rest** — detections are hashed, masked, or truncated before they ever hit your database
+- **Runtime visibility** into every PII-bearing field crossing your app's boundary — inbound, outbound, egress
+- **Audit trail** of which endpoints leak what, by tenant
+- **Compliance evidence** — exportable PDF/JSON reports of observed flows
+- **Zero raw PII at rest** — detections are hashed, masked, or truncated before storage
 
-## 10-second quick start
+APM tells you a request was slow. Logs tell you what you decided to log. Wiregraph tells you what your app *actually sent*.
+
+## Quick start
 
 ```bash
 pip install wiregraph
@@ -41,181 +42,101 @@ import wiregraph
 
 INSTALLED_APPS = [*INSTALLED_APPS, *wiregraph.INSTALLED_APPS]
 MIDDLEWARE = wiregraph.setup(MIDDLEWARE)
-
 WIREGRAPH = {"ENABLED": True}
 ```
 
 ```bash
 python manage.py migrate
-python manage.py wiregraph_doctor   # sanity-check your config
+python manage.py wiregraph_doctor   # sanity-check config
 ```
 
-Hit any endpoint. Check `/api/v1/detection/events/`. You'll see what's leaking.
+Hit any endpoint, then check `/api/v1/detection/events/`.
 
-## Why not logs or APM?
+> Wiregraph skips the Django admin URL prefix by default — otherwise the `DataEvent` admin would re-detect its own contents on refresh. Override with `AUTO_EXCLUDE_ADMIN=False`.
 
-| | Logs / APM | Static scanners | **Wiregraph** |
-|---|---|---|---|
-| Sees actual traffic | Partial | No | **Yes** |
-| Detects PII semantically | No | Limited | **Yes (regex + ML)** |
-| Tracks egress to third parties | No | No | **Yes** |
-| Tenant-aware | No | No | **Yes** |
-| Safe to store results | Depends | N/A | **Yes — never stores raw PII** |
+## Install extras
 
-APM tells you a request was slow. Logs tell you what you decided to log. Wiregraph tells you what your app *actually sent*.
+```bash
+pip install wiregraph[presidio]    # ML detection (also: python -m spacy download en_core_web_lg)
+pip install wiregraph[export]      # PDF/JSON reports
+pip install wiregraph[all]
+```
 
 ## Security guarantee
 
-**Wiregraph never persists raw PII.** Every detection is redacted (hash / mask / truncate, configurable) before it touches storage. The matched value exists only in memory long enough to classify and redact it. You get the signal; the sensitive bytes stay gone.
+**Wiregraph never persists raw PII.** Every detection is redacted (hash / mask / truncate, configurable) before it touches storage. The matched value lives in memory only long enough to classify and redact.
 
-## Core features
+## Detection
 
-- **Regex detection** out of the box — emails, phone numbers, SSNs, credit cards, and more
-- **Custom patterns** — register project-specific detectors (internal IDs, locale formats) via `WIREGRAPH["CUSTOM_PATTERNS"]`
-- **Presidio integration** (optional) — ML-powered NER for names, addresses, IBANs, and 50+ entity types; runs async via Celery so the request path stays fast
-- **Egress tracking** — flags PII sent to outbound services (OpenAI, Stripe, anything you call)
-- **Multi-tenant isolation** — built for SaaS
-- **Configurable redaction** — hash, mask, or truncate
-- **Scheduled retention purge** — via cron or Celery Beat
-
-## Installation
-
-```bash
-pip install wiregraph              # core
-pip install wiregraph[presidio]    # + ML detection (also: python -m spacy download en_core_web_lg)
-pip install wiregraph[export]      # + PDF/JSON reports
-pip install wiregraph[all]         # everything
-```
-
-## Full setup
-
-1. Add Wiregraph's apps to `INSTALLED_APPS`:
-
-    ```python
-    import wiregraph
-    INSTALLED_APPS = [
-        # ... your apps ...
-        *wiregraph.INSTALLED_APPS,
-    ]
-    ```
-
-2. Install the middleware. `wiregraph.setup()` inserts both entries at the correct positions (idempotent):
-
-    ```python
-    MIDDLEWARE = wiregraph.setup([
-        # ... your existing middleware ...
-        "django.contrib.auth.middleware.AuthenticationMiddleware",
-    ])
-    ```
-
-    Wiring manually? Keep `JWTAuthMiddleware` before `PIIDetectionMiddleware`, both after `AuthenticationMiddleware`.
-
-3. Configure. Only `ENABLED` is required; every other key has a default.
-
-    ```python
-    WIREGRAPH = {"ENABLED": True}
-    ```
-
-    See [docs/settings.md](docs/settings.md) for all keys.
-
-    > **Admin auto-exclusion.** Wiregraph skips your Django admin URL prefix by default (`AUTO_EXCLUDE_ADMIN=True`) — otherwise the `DataEvent` list view would re-detect the PII it displays on every refresh. Set to `False` to opt out.
-
-4. Run migrations:
-
-    ```bash
-    python manage.py migrate
-    ```
-
-### Custom tenant resolution
-
-By default Wiregraph walks `request.user.tenant_memberships`. If your project stores tenancy differently (FK, subdomain, gateway header), point `TENANT_RESOLVER` at your own callable:
-
-```python
-# myapp/tenancy.py
-def resolve(request):
-    return getattr(request.user, "active_tenant", None)
-
-# settings.py
-WIREGRAPH = {
-    "ENABLED": True,
-    "TENANT_RESOLVER": "myapp.tenancy.resolve",
-}
-```
-
-## Extending detection
-
-### Custom regex patterns
+Regex out of the box: emails, phones, SSNs, credit cards, and more. Add your own:
 
 ```python
 WIREGRAPH = {
     "ENABLED": True,
     "CUSTOM_PATTERNS": [
         {"name": "emp_id", "regex": r"\bEMP-\d{6}\b", "confidence": 0.9},
-        {"name": "phone_uk", "regex": r"\+44\s?\d{2,4}\s?\d{3,4}\s?\d{3,4}", "flags": "i"},
     ],
 }
 ```
 
-Each entry takes `name`, `regex`, optional `confidence` (default `0.75`), optional `flags` (string of `imsxa`). Invalid specs fail loudly at startup.
-
-### Presidio (deep NLP)
+Optional Presidio (ML NER for names, addresses, IBANs, 50+ entity types) runs async via Celery so the request path stays fast:
 
 ```python
-WIREGRAPH = {
-    "ENABLED": True,
-    "ENABLE_PRESIDIO": True,
-}
+WIREGRAPH = {"ENABLED": True, "ENABLE_PRESIDIO": True}
 ```
 
-Requires the `presidio` extra, a spaCy language model, and a running Celery worker — see [Installing Presidio](docs/SETUP_GUIDE.md#installing-presidio). Presidio matches that overlap a regex match on the same asset are deduped (regex wins on precision).
+See [Installing Presidio](docs/SETUP_GUIDE.md#installing-presidio). Presidio matches that overlap a regex hit on the same asset are deduped (regex wins).
 
-## Scheduled retention purge
+## Classification
 
-Delete events older than `DATA_RETENTION_DAYS`.
+Not every PII hit is a leak. An email to `api.stripe.com` is the product working; the same email to `api.openai.com` is an incident. Wiregraph classifies every `DataEvent` on **what × where × policy** and writes the verdict to `DataEvent.outcome`:
 
-Via cron / systemd:
+| Outcome | Meaning |
+|---|---|
+| `expected` | Asset flowed to a sink that accepts it (Stripe ← email) |
+| `acceptable` | Trusted sink, asset not on its accept-list but not dangerous |
+| `suspicious` | Unknown sink, new flow, or known sink receiving an unexpected asset |
+| `prohibited` | Sensitive asset to a sink that should never receive it |
+
+A built-in catalog (~15 vendors: Stripe, OpenAI, Anthropic, Bedrock, Twilio, SendGrid, Segment, S3, Auth0, …) means a fresh install gets meaningful outcomes with zero setup. Override per-host via `SINK_OVERRIDES` (settings) or `SinkCatalogOverride` (DB, tenant-scoped). LLM strictness is tunable: `LLM_POLICY = "strict"` (default — medium+ PII to LLM is `prohibited`) or `"relaxed"`.
+
+## Tenant resolution
+
+By default Wiregraph walks `request.user.tenant_memberships`. Point `TENANT_RESOLVER` at your own callable if your project stores tenancy differently (FK, subdomain, header).
+
+## Retention purge
+
+Delete events older than `DATA_RETENTION_DAYS`:
 
 ```bash
-python manage.py wiregraph_purge [--dry-run] [--batch-size N]
+python manage.py wiregraph_purge [--dry-run]
 ```
 
-Via Celery Beat:
+Or via Celery Beat:
 
 ```python
 import wiregraph.celery as wg_celery
-
-CELERY_BEAT_SCHEDULE = {
-    **wg_celery.schedule(hour=3, minute=0),
-    # ... your other scheduled tasks ...
-}
-```
-
-Other management commands:
-
-```bash
-python manage.py wiregraph_doctor   # verify configuration
-python manage.py wiregraph_init --settings-file config/settings.py   # scaffold config block
+CELERY_BEAT_SCHEDULE = {**wg_celery.schedule(hour=3, minute=0)}
 ```
 
 ## API
 
-All endpoints are versioned under `/api/v1/` and require a JWT `Bearer` token (obtain via `/api/v1/auth/token/`). OpenAPI schema at `/api/v1/schema/`, Swagger UI at `/api/v1/schema/docs/`.
+Versioned under `/api/v1/`, JWT `Bearer` auth (obtain via `/api/v1/auth/token/`). OpenAPI at `/api/v1/schema/`, Swagger at `/api/v1/schema/docs/`.
 
 | Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/v1/auth/token/` | Obtain access + refresh token (throttled 5/min) |
-| POST | `/api/v1/auth/token/refresh/` | Rotate refresh token (throttled 5/min) |
-| GET | `/api/v1/detection/events/` | List detection events (filter: `direction`, `data_asset`, `endpoint`, `timestamp__gte`, `timestamp__lte`) |
-| GET | `/api/v1/detection/events/{id}/` | Retrieve a single event |
-| GET | `/api/v1/detection/assets/` | List PII categories seen in traffic |
-| GET | `/api/v1/detection/stats/summary/` | Dashboard counts by direction and asset |
+|---|---|---|
+| POST | `/api/v1/auth/token/` | Obtain access + refresh token |
+| POST | `/api/v1/auth/token/refresh/` | Rotate refresh token |
+| GET | `/api/v1/detection/events/` | List events (filter: `direction`, `data_asset`, `endpoint`, `timestamp__gte`, `timestamp__lte`) |
+| GET | `/api/v1/detection/events/{id}/` | Retrieve event |
+| GET | `/api/v1/detection/assets/` | PII categories seen in traffic |
+| GET | `/api/v1/detection/stats/summary/` | Dashboard counts |
+
+See [docs/settings.md](docs/settings.md) for all config keys.
 
 ## Requirements
 
-- Python >= 3.10
-- Django >= 5.0
-- Celery + Redis (for async detection)
-- PostgreSQL (recommended)
+Python ≥ 3.10 · Django ≥ 5.0 · Celery + Redis (async detection) · PostgreSQL recommended
 
 ## License
 

@@ -270,6 +270,7 @@ Run `python manage.py wiregraph_doctor` first — it checks five common misconfi
 | Large requests not scanned | Body > `MAX_BODY_SIZE` | Raise limit or accept gap |
 | Infinite loop in alerts | Your webhook is re-intercepted | Wrap in `mark_internal_call()` |
 | Allowlist change ignored | Per-tenant cache stale | Call `invalidate_tenant_rules(tenant)` |
+| Presidio install fails in Docker (`permission denied` on `~/.local`) | Base image's user has no `HOME` | Set `ENV HOME=/home/<user>` and ensure the dir exists before `pip install` |
 
 ---
 

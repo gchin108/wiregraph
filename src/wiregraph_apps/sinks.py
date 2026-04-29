@@ -54,7 +54,7 @@ BUILTIN_CATALOG: dict[str, dict[str, Any]] = {
     "stripe.com": {
         "category": "payments",
         "trust_tier": "trusted",
-        "accepts_assets": None,
+        "accepts_assets": None,  # ← None = use category default
         "display_name": "Stripe",
     },
     # LLMs
