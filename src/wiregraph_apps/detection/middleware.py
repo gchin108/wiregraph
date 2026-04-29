@@ -23,6 +23,10 @@ from wiregraph_apps.common.conf import (
     get_max_body_size,
     get_sampling_rate,
 )
+from wiregraph_apps.common.request_context import (
+    reset_current_request_id,
+    set_current_request_id,
+)
 from wiregraph_apps.common.tenancy import (
     reset_current_tenant,
     resolve_tenant,
@@ -52,8 +56,11 @@ class PIIDetectionMiddleware:
         skip_scan = self._should_skip(request)
 
         token = None
+        rid_token = None
         if not skip_scan:
-            setattr(request, _REQUEST_ID_ATTR, uuid.uuid4().hex)
+            request_id = uuid.uuid4().hex
+            setattr(request, _REQUEST_ID_ATTR, request_id)
+            rid_token = set_current_request_id(request_id)
             self._scan_inbound(request)
             token = set_current_tenant(resolve_tenant(request))
 
@@ -62,6 +69,8 @@ class PIIDetectionMiddleware:
         finally:
             if token is not None:
                 reset_current_tenant(token)
+            if rid_token is not None:
+                reset_current_request_id(rid_token)
 
         if not skip_scan:
             self._scan_outbound(request, response)

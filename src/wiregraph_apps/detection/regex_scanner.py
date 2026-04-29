@@ -15,6 +15,7 @@ class Match:
     end: int
     value: str
     confidence: float
+    json_path: str | None = None
 
 
 _EMAIL_RE = re.compile(

@@ -27,14 +27,17 @@ Test hygiene:
 from __future__ import annotations
 
 import contextlib
+import json
 import logging
 import threading
+from dataclasses import replace
 from urllib.parse import unquote_plus, urlsplit
 
 from django.db import transaction
 from django.utils import timezone
 
 from wiregraph_apps.common.conf import get_config, get_max_body_size
+from wiregraph_apps.common.request_context import get_current_request_id
 from wiregraph_apps.common.tenancy import get_current_tenant
 from wiregraph_apps.detection.allowlist import filter_matches
 from wiregraph_apps.detection.classifier import (
@@ -170,8 +173,11 @@ def _record_egress(prepared_request, response) -> None:
         content_type = (getattr(prepared_request, "headers", None) or {}).get(
             "Content-Type", ""
         )
-        if "application/x-www-form-urlencoded" in content_type.lower():
+        content_type_lower = content_type.lower()
+        if "application/x-www-form-urlencoded" in content_type_lower:
             body_text = unquote_plus(body_text)
+
+        request_id = get_current_request_id()
 
         enqueue_presidio_scan(
             tenant=tenant,
@@ -180,11 +186,15 @@ def _record_egress(prepared_request, response) -> None:
             endpoint=endpoint,
             method=method,
             external_service_id=service.pk,
+            request_id=request_id,
         )
 
         matches = filter_matches(tenant, _scanner.scan(body_text), endpoint, host)
         if not matches:
             return
+
+        if "application/json" in content_type_lower:
+            matches = _enrich_with_json_path(matches, body_text)
 
         asset_cache: dict[str, DataAsset] = {}
         new_assets: list[DataAsset] = []
@@ -214,6 +224,8 @@ def _record_egress(prepared_request, response) -> None:
                     detection_method="regex",
                     redacted_snippet=redact(match.value),
                     confidence=match.confidence,
+                    json_path=match.json_path or "",
+                    request_id=request_id,
                     timestamp=now,
                 )
                 try:
@@ -267,6 +279,32 @@ def _record_egress(prepared_request, response) -> None:
             )
         except Exception:
             logger.exception("wiregraph: event_classified dispatch failed")
+
+
+def _walk_json_strings(obj, prefix: str = "body"):
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            yield from _walk_json_strings(value, f"{prefix}.{key}")
+    elif isinstance(obj, list):
+        for index, value in enumerate(obj):
+            yield from _walk_json_strings(value, f"{prefix}[{index}]")
+    elif isinstance(obj, str):
+        yield prefix, obj
+
+
+def _enrich_with_json_path(matches, body_text):
+    try:
+        parsed = json.loads(body_text)
+    except (ValueError, TypeError):
+        return matches
+    leaves = list(_walk_json_strings(parsed))
+    if not leaves:
+        return matches
+    enriched = []
+    for match in matches:
+        path = next((p for p, val in leaves if match.value in val), None)
+        enriched.append(replace(match, json_path=path) if path else match)
+    return enriched
 
 
 def _extract_body(prepared_request) -> str | None:

@@ -58,6 +58,11 @@ class DataEvent(TenantScopedModel):
         blank=True,
         help_text="Optional correlation ID for grouping events from a single request",
     )
+    json_path = models.CharField(
+        max_length=512,
+        blank=True,
+        help_text="Dotted path to the JSON field containing the match, e.g. 'body.messages[0].content'.",
+    )
     timestamp = models.DateTimeField(help_text="When the PII was observed")
     outcome = models.CharField(
         max_length=20,
