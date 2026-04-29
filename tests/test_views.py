@@ -119,6 +119,69 @@ def test_summary_stats(authed):
     assert body["by_asset"] == {"email": 3}
 
 
+def test_endpoint_nodes_list_groups_by_service_endpoint_method(authed):
+    client, membership = authed
+    email = DataAssetFactory(tenant=membership.tenant, name="email")
+    ssn = DataAssetFactory(tenant=membership.tenant, name="ssn")
+    DataEventFactory(
+        tenant=membership.tenant, data_asset=email,
+        direction="outbound", endpoint="/v1/chat", method="POST", outcome="suspicious",
+    )
+    DataEventFactory(
+        tenant=membership.tenant, data_asset=ssn,
+        direction="outbound", endpoint="/v1/chat", method="POST", outcome="prohibited",
+    )
+    DataEventFactory(
+        tenant=membership.tenant, data_asset=email,
+        direction="outbound", endpoint="/v1/embeddings", method="POST", outcome="acceptable",
+    )
+    # inbound events must not appear as endpoint nodes
+    DataEventFactory(
+        tenant=membership.tenant, data_asset=email,
+        direction="inbound", endpoint="/signup", method="POST",
+    )
+
+    response = client.get("/api/v1/detection/endpoint-nodes/")
+    assert response.status_code == 200
+    nodes = response.json()
+    assert len(nodes) == 2
+    by_endpoint = {n["endpoint"]: n for n in nodes}
+    chat = by_endpoint["/v1/chat"]
+    assert chat["worst_outcome"] == "prohibited"
+    assert chat["event_count"] == 2
+    assert {a["name"] for a in chat["assets"]} == {"email", "ssn"}
+
+
+def test_endpoint_node_events_drilldown(authed):
+    client, membership = authed
+    asset = DataAssetFactory(tenant=membership.tenant, name="email")
+    DataEventFactory(
+        tenant=membership.tenant, data_asset=asset,
+        direction="outbound", endpoint="/v1/chat", method="POST",
+    )
+    DataEventFactory(
+        tenant=membership.tenant, data_asset=asset,
+        direction="outbound", endpoint="/v1/other", method="POST",
+    )
+
+    nodes = client.get("/api/v1/detection/endpoint-nodes/").json()
+    chat_id = next(n["id"] for n in nodes if n["endpoint"] == "/v1/chat")
+
+    response = client.get(f"/api/v1/detection/endpoint-nodes/{chat_id}/events/")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["count"] == 1
+    assert body["results"][0]["endpoint"] == "/v1/chat"
+
+
+def test_endpoint_node_unknown_returns_404(authed):
+    client, _ = authed
+    import base64
+    bogus = base64.urlsafe_b64encode(b"|GET|/missing").decode().rstrip("=")
+    response = client.get(f"/api/v1/detection/endpoint-nodes/{bogus}/")
+    assert response.status_code == 404
+
+
 def test_user_without_tenant_gets_403(api_client):
     from tests.fixtures.factories import UserFactory
 

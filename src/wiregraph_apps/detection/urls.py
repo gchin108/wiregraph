@@ -5,6 +5,7 @@ from wiregraph_apps.detection.views import (
     AllowlistRuleViewSet,
     DataAssetViewSet,
     DataEventViewSet,
+    EndpointNodeViewSet,
     SummaryStatsView,
 )
 
@@ -12,6 +13,7 @@ router = DefaultRouter()
 router.register(r"events", DataEventViewSet, basename="event")
 router.register(r"assets", DataAssetViewSet, basename="asset")
 router.register(r"allowlist", AllowlistRuleViewSet, basename="allowlist")
+router.register(r"endpoint-nodes", EndpointNodeViewSet, basename="endpoint-node")
 
 urlpatterns = [
     path("", include(router.urls)),

@@ -1,16 +1,24 @@
 from django.db.models import Count
 from rest_framework import mixins
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.viewsets import ViewSet
 
 from wiregraph_apps.common.tenancy import resolve_tenant
-from wiregraph_apps.common.views import TenantScopedViewSet
+from wiregraph_apps.common.views import TenantScopedMixin, TenantScopedViewSet
 from wiregraph_apps.detection.allowlist import invalidate_tenant_rules
 from wiregraph_apps.detection.models import AllowlistRule, DataAsset, DataEvent
+from wiregraph_apps.detection.selectors import (
+    endpoint_node_events,
+    get_endpoint_node,
+    list_endpoint_nodes,
+)
 from wiregraph_apps.detection.serializers import (
     AllowlistRuleSerializer,
     DataAssetSerializer,
     DataEventSerializer,
+    EndpointNodeSerializer,
 )
 
 
@@ -72,6 +80,44 @@ class AllowlistRuleViewSet(
         tenant = instance.tenant
         instance.delete()
         invalidate_tenant_rules(tenant)
+
+
+class EndpointNodeViewSet(TenantScopedMixin, ViewSet):
+    """Aggregated outbound endpoints — one node per (service, endpoint, method)."""
+
+    queryset = DataEvent.objects.none()  # tenancy mixin guard
+
+    def list(self, request):
+        nodes = list_endpoint_nodes(self.get_tenant())
+        return Response(EndpointNodeSerializer(nodes, many=True).data)
+
+    def retrieve(self, request, pk=None):
+        node = get_endpoint_node(self.get_tenant(), pk)
+        if node is None:
+            return Response({"detail": "Not found."}, status=404)
+        return Response(EndpointNodeSerializer(node).data)
+
+    @action(detail=True, methods=["get"])
+    def events(self, request, pk=None):
+        tenant = self.get_tenant()
+        if get_endpoint_node(tenant, pk) is None:
+            return Response({"detail": "Not found."}, status=404)
+        qs = endpoint_node_events(tenant, pk)
+        paginator = self.paginator
+        page = paginator.paginate_queryset(qs, request, view=self) if paginator else None
+        serializer = DataEventSerializer(page if page is not None else qs, many=True)
+        if page is not None:
+            return paginator.get_paginated_response(serializer.data)
+        return Response(serializer.data)
+
+    @property
+    def paginator(self):
+        if not hasattr(self, "_paginator"):
+            from rest_framework.settings import api_settings
+
+            cls = api_settings.DEFAULT_PAGINATION_CLASS
+            self._paginator = cls() if cls else None
+        return self._paginator
 
 
 class SummaryStatsView(APIView):

@@ -3,6 +3,33 @@ from rest_framework import serializers
 from wiregraph_apps.detection.models import AllowlistRule, DataAsset, DataEvent
 
 
+class AssetCountSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    label = serializers.CharField()
+    count = serializers.IntegerField()
+
+
+class HourBucketSerializer(serializers.Serializer):
+    hour = serializers.DateTimeField()
+    count = serializers.IntegerField()
+
+
+class EndpointNodeSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    external_service_id = serializers.IntegerField(allow_null=True)
+    external_service_name = serializers.CharField(allow_null=True)
+    external_service_domain = serializers.CharField(allow_null=True)
+    endpoint = serializers.CharField()
+    method = serializers.CharField()
+    direction = serializers.CharField()
+    worst_outcome = serializers.CharField()
+    event_count = serializers.IntegerField()
+    last_seen = serializers.DateTimeField()
+    first_seen = serializers.DateTimeField()
+    assets = AssetCountSerializer(many=True)
+    sparkline = HourBucketSerializer(many=True)
+
+
 class DataAssetSerializer(serializers.ModelSerializer):
     class Meta:
         model = DataAsset
