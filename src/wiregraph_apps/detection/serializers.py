@@ -16,7 +16,7 @@ class HourBucketSerializer(serializers.Serializer):
 
 class EndpointNodeSerializer(serializers.Serializer):
     id = serializers.CharField()
-    external_service_id = serializers.IntegerField(allow_null=True)
+    external_service_id = serializers.CharField(allow_null=True)
     external_service_name = serializers.CharField(allow_null=True)
     external_service_domain = serializers.CharField(allow_null=True)
     endpoint = serializers.CharField()
@@ -52,6 +52,8 @@ class AllowlistRuleSerializer(serializers.ModelSerializer):
             "id",
             "asset_name",
             "endpoint_prefix",
+            "domain",
+            "domain_suffix",
             "reason",
             "created_at",
             "updated_at",

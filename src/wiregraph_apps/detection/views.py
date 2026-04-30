@@ -11,6 +11,7 @@ from wiregraph_apps.detection.allowlist import invalidate_tenant_rules
 from wiregraph_apps.detection.models import AllowlistRule, DataAsset, DataEvent
 from wiregraph_apps.detection.selectors import (
     endpoint_node_events,
+    event_trace,
     get_endpoint_node,
     list_endpoint_nodes,
 )
@@ -44,6 +45,23 @@ class DataEventViewSet(
         if ts_lte := params.get("timestamp__lte"):
             qs = qs.filter(timestamp__lte=ts_lte)
         return qs.order_by("-timestamp")
+
+    @action(detail=True, methods=["get"])
+    def trace(self, request, pk=None):
+        trace = event_trace(self.get_tenant(), pk)
+        if trace is None:
+            return Response({"detail": "Not found."}, status=404)
+        return Response(
+            {
+                "inbound": DataEventSerializer(trace.inbound, many=True).data,
+                "outbound": (
+                    DataEventSerializer(trace.outbound).data
+                    if trace.outbound is not None
+                    else None
+                ),
+                "asset": DataAssetSerializer(trace.asset).data,
+            }
+        )
 
 
 class DataAssetViewSet(

@@ -182,6 +182,87 @@ def test_endpoint_node_unknown_returns_404(authed):
     assert response.status_code == 404
 
 
+def test_event_trace_returns_inbound_outbound_and_asset(authed):
+    client, membership = authed
+    asset = DataAssetFactory(tenant=membership.tenant, name="email")
+    inbound_a = DataEventFactory(
+        tenant=membership.tenant, data_asset=asset,
+        direction="inbound", endpoint="/signup", request_id="req-1",
+    )
+    inbound_b = DataEventFactory(
+        tenant=membership.tenant, data_asset=asset,
+        direction="inbound", endpoint="/signup", request_id="req-1",
+    )
+    outbound = DataEventFactory(
+        tenant=membership.tenant, data_asset=asset,
+        direction="outbound", endpoint="/v1/chat", request_id="req-1",
+    )
+    # Unrelated event with different request_id must not appear.
+    DataEventFactory(
+        tenant=membership.tenant, data_asset=asset,
+        direction="inbound", endpoint="/other", request_id="req-2",
+    )
+
+    response = client.get(f"/api/v1/detection/events/{outbound.id}/trace/")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["outbound"]["id"] == str(outbound.id)
+    assert {row["id"] for row in body["inbound"]} == {str(inbound_a.id), str(inbound_b.id)}
+    assert body["asset"]["name"] == "email"
+
+
+def test_event_trace_from_inbound_finds_outbound(authed):
+    client, membership = authed
+    asset = DataAssetFactory(tenant=membership.tenant, name="email")
+    inbound = DataEventFactory(
+        tenant=membership.tenant, data_asset=asset,
+        direction="inbound", request_id="req-9",
+    )
+    outbound = DataEventFactory(
+        tenant=membership.tenant, data_asset=asset,
+        direction="outbound", request_id="req-9",
+    )
+
+    body = client.get(f"/api/v1/detection/events/{inbound.id}/trace/").json()
+    assert body["outbound"]["id"] == str(outbound.id)
+    assert {row["id"] for row in body["inbound"]} == {str(inbound.id)}
+
+
+def test_event_trace_blank_request_id_has_no_inbound(authed):
+    client, membership = authed
+    asset = DataAssetFactory(tenant=membership.tenant, name="email")
+    DataEventFactory(
+        tenant=membership.tenant, data_asset=asset,
+        direction="inbound", request_id="",
+    )
+    outbound = DataEventFactory(
+        tenant=membership.tenant, data_asset=asset,
+        direction="outbound", request_id="",
+    )
+
+    body = client.get(f"/api/v1/detection/events/{outbound.id}/trace/").json()
+    assert body["inbound"] == []
+    assert body["outbound"]["id"] == str(outbound.id)
+
+
+def test_event_trace_blocks_cross_tenant(authed):
+    client, _membership = authed
+    other = TenantMembershipFactory()
+    other_asset = DataAssetFactory(tenant=other.tenant, name="email")
+    other_event = DataEventFactory(
+        tenant=other.tenant, data_asset=other_asset, direction="outbound",
+    )
+    response = client.get(f"/api/v1/detection/events/{other_event.id}/trace/")
+    assert response.status_code == 404
+
+
+def test_event_trace_unknown_returns_404(authed):
+    client, _ = authed
+    import uuid
+    response = client.get(f"/api/v1/detection/events/{uuid.uuid4()}/trace/")
+    assert response.status_code == 404
+
+
 def test_user_without_tenant_gets_403(api_client):
     from tests.fixtures.factories import UserFactory
 
