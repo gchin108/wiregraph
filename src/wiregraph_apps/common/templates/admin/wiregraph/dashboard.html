@@ -13,29 +13,100 @@
     #wiregraph-dashboard .wg-filters {
       display: flex; gap: 1rem; align-items: flex-end;
       padding: 1rem 0; border-bottom: 1px solid var(--hairline-color, #eee);
-      margin-bottom: 1rem;
+      margin-bottom: 0.5rem;
     }
-    #wiregraph-dashboard label { display: flex; flex-direction: column; font-size: 0.85rem; }
+    #wiregraph-dashboard label.wg-date { display: flex; flex-direction: column; font-size: 0.85rem; }
     #wiregraph-dashboard .wg-empty { padding: 2rem; color: #666; font-style: italic; }
     #wiregraph-dashboard .wg-col-header {
       font-weight: 600; font-size: 0.8rem; text-transform: uppercase;
       fill: #555;
     }
     #wiregraph-dashboard .wg-node rect { cursor: pointer; }
-    #wiregraph-dashboard .wg-node text { font-size: 11px; pointer-events: none; }
-    #wiregraph-dashboard .wg-edge { fill: none; stroke: #417690; stroke-opacity: 0.45; }
-    #wiregraph-dashboard .wg-edge:hover { stroke-opacity: 0.9; }
+    #wiregraph-dashboard .wg-node text {
+      font-size: 11px; pointer-events: none;
+      fill: #1f2328;  /* tinted backgrounds are always light, so pin text dark in both admin themes */
+    }
+    #wiregraph-dashboard .wg-node text.wg-count { fill: #555; }
+    #wiregraph-dashboard .wg-edge { fill: none; }
+    #wiregraph-dashboard .wg-edge:hover { stroke-opacity: 1 !important; }
     #wiregraph-dashboard .wg-subheader {
       font-size: 0.7rem; text-transform: uppercase; fill: #888;
       letter-spacing: 0.05em;
     }
+    #wiregraph-dashboard .wg-levels {
+      display: flex; gap: 0.4rem; padding: 0.5rem 0 0.75rem;
+      flex-wrap: wrap; align-items: center;
+    }
+    #wiregraph-dashboard .wg-chip {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.2rem 0.6rem; border: 1px solid #ccc; border-radius: 999px;
+      cursor: pointer; user-select: none; font-size: 0.8rem;
+      background: #fff; color: #1f2328;
+    }
+    #wiregraph-dashboard .wg-chip input { margin: 0; }
+    #wiregraph-dashboard .wg-chip-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex: none;
+    }
+    #wiregraph-dashboard .wg-chip-name { text-transform: capitalize; }
+    #wiregraph-dashboard .wg-chip-count {
+      color: #888; font-variant-numeric: tabular-nums; font-size: 0.75rem;
+    }
+    #wiregraph-dashboard .wg-chip[data-on="false"] { opacity: 0.45; }
+    #wiregraph-dashboard .wg-chip-expected   .wg-chip-dot { background: #4a6b55; }
+    #wiregraph-dashboard .wg-chip-acceptable .wg-chip-dot { background: #4c6ef5; }
+    #wiregraph-dashboard .wg-chip-suspicious .wg-chip-dot { background: #fab005; }
+    #wiregraph-dashboard .wg-chip-prohibited .wg-chip-dot { background: #fa5252; }
+
+    @keyframes wg-dash-flow { to { stroke-dashoffset: -20; } }
+    #wiregraph-dashboard .wg-edge.wg-prohibited {
+      stroke-dasharray: 6 4;
+      animation: wg-dash-flow 1s linear infinite;
+    }
+
+    #wiregraph-dashboard .wg-risk {
+      display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;
+      padding: 0.55rem 0.85rem; border-radius: 6px;
+      margin: 0.5rem 0 0; font-size: 0.85rem;
+    }
+    #wiregraph-dashboard .wg-risk + .wg-risk { margin-top: 0.35rem; }
+    #wiregraph-dashboard .wg-risk-prohibited {
+      background: #fde0e0; color: #842029; border-left: 4px solid #fa5252;
+    }
+    #wiregraph-dashboard .wg-risk-suspicious {
+      background: #fef3d2; color: #6c5800; border-left: 4px solid #fab005;
+    }
+    #wiregraph-dashboard .wg-risk-icon { font-size: 1rem; }
+    #wiregraph-dashboard .wg-risk-count { font-weight: 600; }
+    #wiregraph-dashboard .wg-risk-detail { opacity: 0.85; }
+
+    #wiregraph-dashboard { position: relative; }
+    #wiregraph-dashboard .wg-tooltip {
+      position: fixed; pointer-events: none; z-index: 1000;
+      background: #1f2328; color: #fff;
+      padding: 0.5rem 0.7rem; border-radius: 4px;
+      font-size: 0.78rem; line-height: 1.45;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      max-width: 320px; display: none;
+    }
+    #wiregraph-dashboard .wg-tooltip-title {
+      font-weight: 600; margin-bottom: 0.25rem;
+    }
+    #wiregraph-dashboard .wg-tooltip-row { display: block; }
+    #wiregraph-dashboard .wg-tooltip-label {
+      color: #aab; margin-right: 0.35rem;
+    }
+    #wiregraph-dashboard .wg-tooltip-pill {
+      display: inline-block; padding: 0 0.4rem; border-radius: 3px;
+      font-size: 0.7rem; text-transform: uppercase; font-weight: 600;
+      letter-spacing: 0.04em;
+    }
   </style>
 
   <form method="get" class="wg-filters">
-    <label>Start
+    <label class="wg-date">Start
       <input type="date" name="start" value="{{ start }}">
     </label>
-    <label>End
+    <label class="wg-date">End
       <input type="date" name="end" value="{{ end }}">
     </label>
     <button type="submit" class="button">Apply</button>
@@ -44,10 +115,16 @@
     </span>
   </form>
 
+  {% if has_data %}
+    <div id="wg-risk-banner" aria-live="polite"></div>
+    <div id="wg-chips" class="wg-levels" role="group" aria-label="Outcome filters"></div>
+  {% endif %}
+
   {% if not has_data %}
     <div class="wg-empty">No PII flows observed in this date range. Generate traffic to populate the graph.</div>
   {% else %}
     <svg id="wg-graph" width="100%" height="600"></svg>
+    <div id="wg-tooltip" class="wg-tooltip" role="tooltip"></div>
   {% endif %}
 </div>
 
@@ -59,6 +136,27 @@
     const data = JSON.parse(document.getElementById("wg-graph-data").textContent);
     const eventsBase = "{% url 'admin:wiregraph_detection_dataevent_changelist' %}";
 
+    const LEVELS = ["expected", "acceptable", "suspicious", "prohibited"];
+    const COLOR = {
+      expected:   "#4a6b55",
+      acceptable: "#4c6ef5",
+      suspicious: "#fab005",
+      prohibited: "#fa5252",
+    };
+    const PRIORITY = { expected: 0, acceptable: 1, suspicious: 2, prohibited: 3 };
+    // Opaque pastel fills — must not be alpha-blended, since admin dark mode
+    // would otherwise composite them onto a dark SVG background and make the
+    // dark node text unreadable.
+    const TINT = {
+      expected:   "#e8f0eb",
+      acceptable: "#e7ecfe",
+      suspicious: "#fef3d2",
+      prohibited: "#fde0e0",
+    };
+
+    // Default-hide `expected` so the graph isn't dominated by routine flows.
+    const visible = new Set(["acceptable", "suspicious", "prohibited"]);
+
     const svg = d3.select("#wg-graph");
     const width = svg.node().getBoundingClientRect().width;
     const height = +svg.attr("height");
@@ -69,11 +167,13 @@
     const rowGap = 8;
 
     const columns = [
-      { key: "endpoints", title: "Endpoints", x: colPad + colWidth * 0.5 },
-      { key: "assets", title: "PII Types", x: colPad + colWidth * 1.5 },
-      { key: "services", title: "External Services", x: colPad + colWidth * 2.5 },
+      { key: "endpoints", title: "Endpoints",         x: colPad + colWidth * 0.5 },
+      { key: "assets",    title: "PII Types",         x: colPad + colWidth * 1.5 },
+      { key: "services",  title: "External Services", x: colPad + colWidth * 2.5 },
     ];
 
+    // Compute fixed positions once — node order doesn't change with filters,
+    // only colors and edge visibility do.
     const subgroupGap = 18;
     const positions = {};
     const subheaders = [];
@@ -99,14 +199,16 @@
           lastDir = n.direction;
         }
         positions[n.id] = {
+          col: col.key,
           x: col.x, y: y + nodeH / 2,
           label: n.label, count: n.count, direction: n.direction,
+          rawId: n.id,
         };
         y += nodeH + rowGap;
       });
     });
 
-    // column headers
+    // Static layers — drawn once.
     svg.selectAll(".wg-col-header")
       .data(columns)
       .enter()
@@ -117,7 +219,6 @@
       .attr("text-anchor", "middle")
       .text(d => d.title);
 
-    // sub-group headers (Inbound / Outbound under Endpoints)
     svg.append("g").selectAll("text.wg-subheader")
       .data(subheaders)
       .enter()
@@ -128,60 +229,251 @@
       .attr("text-anchor", "middle")
       .text(d => d.text);
 
-    // edges
-    const maxW = Math.max(1, ...(data.edges || []).map(e => e.weight));
-    svg.append("g").selectAll("path.wg-edge")
-      .data(data.edges || [])
-      .enter()
-      .append("path")
-      .attr("class", "wg-edge")
-      .attr("stroke-width", e => 1 + (e.weight / maxW) * 5)
-      .attr("d", e => {
-        const s = positions[e.source], t = positions[e.target];
-        if (!s || !t) return "";
-        const sx = s.x + nodeW / 2, sy = s.y;
-        const tx = t.x - nodeW / 2, ty = t.y;
-        const mx = (sx + tx) / 2;
-        return `M${sx},${sy} C${mx},${sy} ${mx},${ty} ${tx},${ty}`;
-      })
-      .append("title")
-      .text(e => `${e.weight} event(s)`);
+    // Dynamic layers — re-rendered on filter toggle.
+    const edgeLayer = svg.append("g").attr("class", "wg-edges");
+    const nodeLayer = svg.append("g").attr("class", "wg-nodes");
 
-    // nodes
-    const nodeG = svg.append("g");
-    columns.forEach(col => {
-      (data[col.key] || []).forEach(n => {
-        const p = positions[n.id];
-        const g = nodeG.append("g").attr("class", "wg-node")
-          .attr("transform", `translate(${p.x - nodeW / 2},${p.y - nodeH / 2})`);
-
-        const filterParam = col.key === "endpoints"
-          ? `endpoint=${encodeURIComponent(p.label)}&direction=${encodeURIComponent(p.direction)}`
-          : col.key === "assets"
-            ? `data_asset__name=${encodeURIComponent(n.id.split("::")[1])}`
-            : `external_service__domain=${encodeURIComponent(n.id.split("::")[1])}`;
-
-        const endpointFill = p.direction === "outbound" ? "#fff4e5" : "#e8f0fe";
-        g.append("a")
-          .attr("href", `${eventsBase}?${filterParam}`)
-          .append("rect")
-          .attr("width", nodeW).attr("height", nodeH)
-          .attr("rx", 4)
-          .attr("fill", col.key === "endpoints" ? endpointFill
-              : col.key === "assets" ? "#fdecea" : "#e6f4ea")
-          .attr("stroke", "#417690");
-
-        g.append("text")
-          .attr("x", 8).attr("y", nodeH / 2 + 4)
-          .text(p.label.length > 36 ? p.label.slice(0, 33) + "…" : p.label);
-
-        g.append("text")
-          .attr("x", nodeW - 8).attr("y", nodeH / 2 + 4)
-          .attr("text-anchor", "end")
-          .attr("fill", "#555")
-          .text(p.count);
+    // Filter chips — render counts from the unfiltered totals so users can
+    // see *what they're hiding* before they toggle it on.
+    const chipsRoot = d3.select("#wg-chips");
+    LEVELS.forEach(level => {
+      const count = (data.counts || {})[level] || 0;
+      const label = chipsRoot.append("label")
+        .attr("class", "wg-chip wg-chip-" + level)
+        .attr("data-on", visible.has(level));
+      label.html(
+        '<input type="checkbox"' + (visible.has(level) ? " checked" : "") + '>' +
+        '<span class="wg-chip-dot"></span>' +
+        '<span class="wg-chip-name">' + level + '</span>' +
+        '<span class="wg-chip-count">' + count + '</span>'
+      );
+      label.select("input").on("change", function() {
+        if (this.checked) visible.add(level); else visible.delete(level);
+        label.attr("data-on", visible.has(level));
+        render();
       });
     });
+
+    function logScale(value, max) {
+      // Map [1..max] → [0..1] on a log scale; flat at 0 for max=1.
+      if (max <= 1) return 0;
+      return Math.log(value) / Math.log(max);
+    }
+
+    const tooltipEl = document.getElementById("wg-tooltip");
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      })[c]);
+    }
+    function tooltipHtml(e) {
+      const s = positions[e.source], t = positions[e.target];
+      const sLabel = s ? s.label : e.source;
+      const tLabel = t ? t.label : e.target;
+      const outcome = e.outcome || "expected";
+      let title;
+      if (e.source.startsWith("asset::") && e.target.startsWith("service::")) {
+        title = escapeHtml(sLabel) + " &rarr; " + escapeHtml(tLabel);
+      } else if (e.source.startsWith("endpoint::")) {
+        const verb = s && s.direction === "outbound" ? "returned by" : "received at";
+        title = escapeHtml(tLabel) + " " + verb + " " + escapeHtml(sLabel);
+      } else {
+        title = escapeHtml(sLabel) + " &rarr; " + escapeHtml(tLabel);
+      }
+      const rows = [];
+      rows.push(
+        '<span class="wg-tooltip-pill" style="background:' + COLOR[outcome] + ';color:#fff">' +
+        outcome + "</span>"
+      );
+      if (e.detector) {
+        const conf = e.confidence != null
+          ? " <span class=\"wg-tooltip-label\">·</span> confidence " + e.confidence.toFixed(2)
+          : "";
+        rows.push(
+          '<span class="wg-tooltip-row">Detected via ' + escapeHtml(e.detector) + conf + "</span>"
+        );
+      }
+      // Origin: skip on inbound edges (the source IS the origin and is named
+      // in the title), show on egress edges where the join may or may not
+      // have produced a value.
+      if (e.source.startsWith("asset::") && e.target.startsWith("service::")) {
+        const origin = e.origin_endpoint
+          ? escapeHtml(e.origin_endpoint)
+          : '<span style="color:#888">unknown</span>';
+        rows.push(
+          '<span class="wg-tooltip-row"><span class="wg-tooltip-label">Origin:</span>' +
+          origin + "</span>"
+        );
+      }
+      rows.push(
+        '<span class="wg-tooltip-row"><span class="wg-tooltip-label">Events:</span>' +
+        e.weight + "</span>"
+      );
+      return '<div class="wg-tooltip-title">' + title + "</div>" + rows.join(" ");
+    }
+    function onEdgeMove(event, d) {
+      tooltipEl.innerHTML = tooltipHtml(d);
+      tooltipEl.style.display = "block";
+      // Position relative to viewport with a small offset; clamp to viewport
+      // so the tooltip doesn't fall off the right or bottom edge.
+      const pad = 12;
+      const rect = tooltipEl.getBoundingClientRect();
+      let x = event.clientX + pad;
+      let y = event.clientY + pad;
+      if (x + rect.width > window.innerWidth - pad) x = event.clientX - rect.width - pad;
+      if (y + rect.height > window.innerHeight - pad) y = event.clientY - rect.height - pad;
+      tooltipEl.style.left = x + "px";
+      tooltipEl.style.top = y + "px";
+    }
+    function onEdgeLeave() {
+      tooltipEl.style.display = "none";
+    }
+
+    function render() {
+      const fEdges = (data.edges || []).filter(e => visible.has(e.outcome || "expected"));
+
+      // Worst incoming outcome by node — colors a node red only if something
+      // bad *landed* there. Endpoints have no incoming, so fall back to
+      // worst outgoing so they aren't always neutral.
+      const worst = {};
+      const bump = (id, outcome) => {
+        if (!worst[id] || PRIORITY[outcome] > PRIORITY[worst[id]]) worst[id] = outcome;
+      };
+      for (const e of fEdges) bump(e.target, e.outcome || "expected");
+      for (const e of fEdges) {
+        if (e.source.startsWith("endpoint::")) bump(e.source, e.outcome || "expected");
+      }
+
+      const maxW = Math.max(1, ...fEdges.map(e => e.weight));
+
+      // Edges
+      const edgeSel = edgeLayer.selectAll("path.wg-edge").data(fEdges, e => e.source + "->" + e.target + "|" + e.outcome);
+      edgeSel.exit().remove();
+      const edgeEnter = edgeSel.enter().append("path")
+        .style("pointer-events", "stroke")
+        .on("mousemove", onEdgeMove)
+        .on("mouseleave", onEdgeLeave);
+      const edgesAll = edgeEnter.merge(edgeSel);
+      edgesAll
+        .attr("class", e => "wg-edge wg-" + (e.outcome || "expected"))
+        .attr("stroke", e => COLOR[e.outcome || "expected"])
+        .attr("stroke-opacity", e => 0.6 + 0.35 * logScale(e.weight, maxW))
+        .attr("stroke-width", e => 1.75 + logScale(e.weight, maxW) * 4.5)
+        .attr("d", e => {
+          const s = positions[e.source], t = positions[e.target];
+          if (!s || !t) return "";
+          const sx = s.x + nodeW / 2, sy = s.y;
+          const tx = t.x - nodeW / 2, ty = t.y;
+          const mx = (sx + tx) / 2;
+          return "M" + sx + "," + sy + " C" + mx + "," + sy + " " + mx + "," + ty + " " + tx + "," + ty;
+        });
+
+      // Nodes — re-render to update fill/stroke based on worst outcome.
+      nodeLayer.selectAll("*").remove();
+      columns.forEach(col => {
+        (data[col.key] || []).forEach(n => {
+          const p = positions[n.id];
+          const nodeWorst = worst[n.id] || null;
+          const accent = nodeWorst ? COLOR[nodeWorst] : "#9aa4ad";
+
+          const fill = nodeWorst ? TINT[nodeWorst] : "#f4f5f7";
+
+          const g = nodeLayer.append("g")
+            .attr("class", "wg-node")
+            .attr("transform", "translate(" + (p.x - nodeW / 2) + "," + (p.y - nodeH / 2) + ")");
+
+          const filterParam = col.key === "endpoints"
+            ? "endpoint=" + encodeURIComponent(p.label) + "&direction=" + encodeURIComponent(p.direction)
+            : col.key === "assets"
+              ? "data_asset__name=" + encodeURIComponent(n.id.split("::")[1])
+              : "external_service__domain=" + encodeURIComponent(n.id.split("::")[1]);
+
+          g.append("a")
+            .attr("href", eventsBase + "?" + filterParam)
+            .append("rect")
+            .attr("width", nodeW).attr("height", nodeH)
+            .attr("rx", 4)
+            .attr("fill", fill)
+            .attr("stroke", accent)
+            .attr("stroke-width", nodeWorst === "prohibited" ? 2 : 1);
+
+          g.append("text")
+            .attr("x", 8).attr("y", nodeH / 2 + 4)
+            .text(p.label.length > 36 ? p.label.slice(0, 33) + "…" : p.label);
+
+          g.append("text")
+            .attr("class", "wg-count")
+            .attr("x", nodeW - 8).attr("y", nodeH / 2 + 4)
+            .attr("text-anchor", "end")
+            .text(p.count);
+        });
+      });
+    }
+
+    function renderRiskBanner() {
+      // Banner uses *unfiltered* edges on purpose — hiding a chip shouldn't
+      // hide the risk it's warning about.
+      const root = document.getElementById("wg-risk-banner");
+      if (!root) return;
+      root.innerHTML = "";
+
+      function phraseFor(edge) {
+        // Resolve "<PII> <verb> <destination>" so the banner names the leak,
+        // not just the node it landed on.
+        const s = positions[edge.source];
+        const t = positions[edge.target];
+        const sLabel = s ? s.label : edge.source;
+        const tLabel = t ? t.label : edge.target;
+        if (edge.source.startsWith("asset::") && edge.target.startsWith("service::")) {
+          return sLabel + " sent to " + tLabel;
+        }
+        if (edge.source.startsWith("endpoint::") && edge.target.startsWith("asset::")) {
+          const verb = s && s.direction === "outbound" ? "returned by" : "received at";
+          return tLabel + " " + verb + " " + sLabel;
+        }
+        return sLabel + " → " + tLabel;
+      }
+
+      function summarize(level) {
+        const matching = (data.edges || []).filter(e => (e.outcome || "expected") === level);
+        if (matching.length === 0) return null;
+        const total = matching.reduce((s, e) => s + e.weight, 0);
+        // Aggregate by the human phrase so identical (asset, service) pairs
+        // collapse even if their event counts came from separate rows.
+        const byPhrase = new Map();
+        for (const e of matching) {
+          const phrase = phraseFor(e);
+          byPhrase.set(phrase, (byPhrase.get(phrase) || 0) + e.weight);
+        }
+        const top = Array.from(byPhrase.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(function(entry) {
+            return entry[0] + (entry[1] > 1 ? " (" + entry[1] + ")" : "");
+          });
+        return { total: total, top: top };
+      }
+
+      const rows = [
+        { level: "prohibited", icon: "⛔", label: "prohibited PII leak" },
+        { level: "suspicious", icon: "⚠",  label: "suspicious PII flow" },
+      ];
+      for (const r of rows) {
+        const s = summarize(r.level);
+        if (!s) continue;
+        const div = document.createElement("div");
+        div.className = "wg-risk wg-risk-" + r.level;
+        const noun = r.label + (s.total === 1 ? "" : "s");
+        div.innerHTML =
+          '<span class="wg-risk-icon">' + r.icon + '</span>' +
+          '<span class="wg-risk-count">' + s.total + ' ' + noun + ' detected:</span>' +
+          '<span class="wg-risk-detail">' + s.top.join("; ") + '</span>';
+        root.appendChild(div);
+      }
+    }
+
+    renderRiskBanner();
+    render();
   })();
 </script>
 {% endif %}
