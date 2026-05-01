@@ -81,6 +81,19 @@ def test_event_detail(authed):
     assert response.json()["id"] == str(event.id)
 
 
+def test_event_detail_includes_json_path(authed):
+    client, membership = authed
+    asset = DataAssetFactory(tenant=membership.tenant, name="email")
+    event = DataEventFactory(
+        tenant=membership.tenant,
+        data_asset=asset,
+        json_path="body.customer.email",
+    )
+
+    body = client.get(f"/api/v1/detection/events/{event.id}/").json()
+    assert body["json_path"] == "body.customer.email"
+
+
 def test_event_detail_blocks_cross_tenant(authed):
     client, _membership = authed
     other = TenantMembershipFactory()

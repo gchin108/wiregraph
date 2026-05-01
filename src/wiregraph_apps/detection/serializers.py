@@ -85,6 +85,7 @@ class DataEventSerializer(serializers.ModelSerializer):
             "method",
             "detection_method",
             "redacted_snippet",
+            "json_path",
             "confidence",
             "match_count",
             "request_id",

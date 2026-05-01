@@ -6,6 +6,10 @@ import pytest
 import requests
 from requests.models import PreparedRequest, Response
 
+from wiregraph_apps.common.request_context import (
+    reset_current_request_id,
+    set_current_request_id,
+)
 from wiregraph_apps.common.tenancy import reset_current_tenant, set_current_tenant
 from wiregraph_apps.detection.models import DataEvent
 from wiregraph_apps.egress import interceptor
@@ -74,6 +78,18 @@ def test_patch_records_external_service_and_pii_event(tenant_ctx, with_patch):
     assert event.endpoint == "/v1/chat"
     assert event.method == "POST"
     assert event.redacted_snippet.startswith("sha256:")
+
+
+def test_outbound_event_inherits_request_id_from_contextvar(tenant_ctx, with_patch):
+    rid_token = set_current_request_id("req-from-ctx")
+    try:
+        session = requests.Session()
+        session.send(_post("https://api.openai.com/v1/chat", '{"email": "a@b.com"}'))
+    finally:
+        reset_current_request_id(rid_token)
+
+    event = DataEvent.objects.get(tenant=tenant_ctx, direction="egress")
+    assert event.request_id == "req-from-ctx"
 
 
 def test_patch_no_pii_still_touches_service(tenant_ctx, with_patch):
