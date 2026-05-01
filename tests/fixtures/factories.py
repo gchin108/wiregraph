@@ -2,6 +2,7 @@ import factory
 from django.contrib.auth import get_user_model
 
 from wiregraph_apps.detection.models import DataAsset, DataEvent
+from wiregraph_apps.egress.models import ExternalService
 from wiregraph_apps.tenants.models import Tenant, TenantMembership
 
 
@@ -39,6 +40,17 @@ class DataAssetFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f"asset_{n}")
     label = factory.LazyAttribute(lambda o: o.name.replace("_", " ").title())
     sensitivity_level = "medium"
+
+
+class ExternalServiceFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = ExternalService
+
+    tenant = factory.SubFactory(TenantFactory)
+    domain = factory.Sequence(lambda n: f"svc{n}.example.com")
+    name = factory.LazyAttribute(lambda o: o.domain)
+    first_seen_at = factory.LazyFunction(lambda: __import__("django.utils.timezone", fromlist=["now"]).now())
+    last_seen_at = factory.LazyFunction(lambda: __import__("django.utils.timezone", fromlist=["now"]).now())
 
 
 class DataEventFactory(factory.django.DjangoModelFactory):

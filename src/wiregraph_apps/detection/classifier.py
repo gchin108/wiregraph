@@ -145,6 +145,7 @@ def classify_for_event(tenant, data_event, external_service) -> tuple[Outcome, s
 
     is_new = False
     if external_service is not None:
+        # when no prior event exists, return early with "suspicious", "flow:new_data_flow" before it reaches the sensitivity check.
         is_new = not DataEvent.objects.filter(
             tenant=tenant,
             data_asset=asset,

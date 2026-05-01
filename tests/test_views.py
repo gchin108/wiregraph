@@ -6,6 +6,7 @@ from wiregraph_apps.detection.models import DataAsset
 from tests.fixtures.factories import (
     DataAssetFactory,
     DataEventFactory,
+    ExternalServiceFactory,
     TenantMembershipFactory,
 )
 
@@ -136,22 +137,28 @@ def test_endpoint_nodes_list_groups_by_service_endpoint_method(authed):
     client, membership = authed
     email = DataAssetFactory(tenant=membership.tenant, name="email")
     ssn = DataAssetFactory(tenant=membership.tenant, name="ssn")
+    svc = ExternalServiceFactory(tenant=membership.tenant, domain="api.openai.com")
     DataEventFactory(
-        tenant=membership.tenant, data_asset=email,
+        tenant=membership.tenant, data_asset=email, external_service=svc,
         direction="outbound", endpoint="/v1/chat", method="POST", outcome="suspicious",
     )
     DataEventFactory(
-        tenant=membership.tenant, data_asset=ssn,
+        tenant=membership.tenant, data_asset=ssn, external_service=svc,
         direction="outbound", endpoint="/v1/chat", method="POST", outcome="prohibited",
     )
     DataEventFactory(
-        tenant=membership.tenant, data_asset=email,
+        tenant=membership.tenant, data_asset=email, external_service=svc,
         direction="outbound", endpoint="/v1/embeddings", method="POST", outcome="acceptable",
     )
     # inbound events must not appear as endpoint nodes
     DataEventFactory(
         tenant=membership.tenant, data_asset=email,
         direction="inbound", endpoint="/signup", method="POST",
+    )
+    # outbound response-body detections (no external_service) must not appear
+    DataEventFactory(
+        tenant=membership.tenant, data_asset=email,
+        direction="outbound", endpoint="/demo/ticket/", method="POST",
     )
 
     response = client.get("/api/v1/detection/endpoint-nodes/")
@@ -168,12 +175,13 @@ def test_endpoint_nodes_list_groups_by_service_endpoint_method(authed):
 def test_endpoint_node_events_drilldown(authed):
     client, membership = authed
     asset = DataAssetFactory(tenant=membership.tenant, name="email")
+    svc = ExternalServiceFactory(tenant=membership.tenant, domain="api.openai.com")
     DataEventFactory(
-        tenant=membership.tenant, data_asset=asset,
+        tenant=membership.tenant, data_asset=asset, external_service=svc,
         direction="outbound", endpoint="/v1/chat", method="POST",
     )
     DataEventFactory(
-        tenant=membership.tenant, data_asset=asset,
+        tenant=membership.tenant, data_asset=asset, external_service=svc,
         direction="outbound", endpoint="/v1/other", method="POST",
     )
 

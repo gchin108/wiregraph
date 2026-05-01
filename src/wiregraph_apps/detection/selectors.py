@@ -75,7 +75,12 @@ def decode_endpoint_id(node_id: str) -> tuple[str | None, str, str]:
 
 
 def _outbound_events(tenant) -> QuerySet[DataEvent]:
-    return DataEvent.objects.filter(tenant=tenant, direction__in=OUTBOUND_DIRECTIONS)
+    # direction="outbound" with no external_service is a response-body
+    # detection (server→client), not a third-party call — exclude from the
+    # endpoint-node graph.
+    return DataEvent.objects.filter(
+        tenant=tenant, direction__in=OUTBOUND_DIRECTIONS
+    ).exclude(direction="outbound", external_service__isnull=True)
 
 
 def list_endpoint_nodes(tenant) -> list[EndpointNode]:
