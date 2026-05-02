@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 from django.test import override_settings
 
-from wiregraph_apps.detection.classifier import apply_shadow_decision
+from wiregraph_apps.detection.classifier_django import apply_shadow_decision
 
 
 def _event(outcome, confidence, reason="rule:allowlist"):

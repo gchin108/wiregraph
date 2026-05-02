@@ -14,7 +14,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from wiregraph_apps.detection.allowlist import filter_matches
-from wiregraph_apps.detection.classifier import (
+from wiregraph_apps.detection.classifier_django import (
     apply_shadow_decision,
     classify_for_event,
     effective_alert_level,
