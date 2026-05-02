@@ -73,7 +73,7 @@ def _run(
     from django.apps import apps
 
     from wiregraph_apps.detection.persistence import persist_matches
-    from wiregraph_apps.detection.presidio_scanner import (
+    from wiregraph_core.scanner.presidio import (
         PresidioScanner,
         dedupe_against,
     )

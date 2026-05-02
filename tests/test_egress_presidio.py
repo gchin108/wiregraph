@@ -138,7 +138,7 @@ def test_task_run_persists_egress_presidio_event(tenant):
     fake_matches = [Match("person_name", 0, 8, "Jane Doe", 0.95)]
     with override_settings(WIREGRAPH={"ENABLED": True, "ENABLE_PRESIDIO": True}):
         with mock.patch(
-            "wiregraph_apps.detection.presidio_scanner.PresidioScanner.scan",
+            "wiregraph_core.scanner.presidio.PresidioScanner.scan",
             return_value=fake_matches,
         ):
             result = tasks._run(

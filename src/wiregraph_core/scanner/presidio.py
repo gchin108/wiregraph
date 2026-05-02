@@ -1,7 +1,8 @@
-"""Presidio-backed deep NLP PII scanner.
+"""Presidio-backed deep NLP PII scanner (framework-agnostic).
 
-Runs asynchronously via Celery (see ``detection/tasks.py``). Lazy-imports
-``presidio_analyzer`` so the core package stays usable without the extra.
+Lazy-imports ``presidio_analyzer`` so the core package stays usable without
+the extra. Hosts run this asynchronously (e.g. via Celery in the Django
+integration — see ``wiregraph_apps.detection.tasks``).
 
 Install with::
 
@@ -13,9 +14,12 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from django.core.exceptions import ImproperlyConfigured
+from wiregraph_core.types import Match
 
-from wiregraph_apps.detection.regex_scanner import Match
+
+class PresidioUnavailable(RuntimeError):
+    """Raised when Presidio is requested but the optional extra isn't installed."""
+
 
 # Presidio entity_type -> WireGraph asset_name. Presidio entities we don't
 # explicitly map are passed through lowercased (covers forward-compat for
@@ -47,7 +51,7 @@ def _import_analyzer():
     try:
         from presidio_analyzer import AnalyzerEngine  # type: ignore
     except ImportError as e:
-        raise ImproperlyConfigured(
+        raise PresidioUnavailable(
             "ENABLE_PRESIDIO is True but presidio-analyzer is not installed. "
             "Install with `pip install wiregraph[presidio]` and "
             "`python -m spacy download en_core_web_lg`."
@@ -91,7 +95,9 @@ class PresidioScanner:
         return matches
 
 
-def dedupe_against(presidio_matches: Iterable[Match], regex_matches: Iterable[Match]) -> list[Match]:
+def dedupe_against(
+    presidio_matches: Iterable[Match], regex_matches: Iterable[Match]
+) -> list[Match]:
     """Drop Presidio matches whose span overlaps a regex match for the same asset.
 
     Regex matches are high-precision; prefer them when both layers fire on the

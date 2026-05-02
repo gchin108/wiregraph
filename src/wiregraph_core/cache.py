@@ -17,11 +17,16 @@ class CacheProtocol(Protocol):
     Semantics mirror ``django.core.cache.cache``: ``get`` returns ``default``
     on miss, ``set`` overwrites, ``incr`` raises ``ValueError`` if the key is
     missing (callers must seed with ``set`` first or use ``get_or_set``).
+    ``add`` is atomic: it stores the value only if the key is absent and
+    returns True in that case, False otherwise — dedup relies on this to
+    deliver exactly one alert per window without a race.
     """
 
     def get(self, key: str, default: Any = None) -> Any: ...
 
     def set(self, key: str, value: Any, timeout: int | None = None) -> None: ...
+
+    def add(self, key: str, value: Any, timeout: int | None = None) -> bool: ...
 
     def incr(self, key: str, delta: int = 1) -> int: ...
 

@@ -75,7 +75,7 @@ requires_presidio = pytest.mark.skipif(
 
 @requires_presidio
 def test_presidio_recall_on_labeled_set():
-    from wiregraph_apps.detection.presidio_scanner import PresidioScanner
+    from wiregraph_core.scanner.presidio import PresidioScanner
     from tests.fixtures.presidio_payloads import LABELED
 
     scanner = PresidioScanner(min_score=0.5)
@@ -91,7 +91,7 @@ def test_presidio_recall_on_labeled_set():
 
 @requires_presidio
 def test_presidio_false_positive_rate_on_negatives():
-    from wiregraph_apps.detection.presidio_scanner import PresidioScanner
+    from wiregraph_core.scanner.presidio import PresidioScanner
     from tests.fixtures.presidio_payloads import NEGATIVES
 
     scanner = PresidioScanner(min_score=0.6)
