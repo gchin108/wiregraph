@@ -1,10 +1,11 @@
 import pytest
 
-from wiregraph_apps.detection.presidio_scanner import (
+from wiregraph_core.scanner.presidio import (
     PresidioScanner,
+    PresidioUnavailable,
     dedupe_against,
 )
-from wiregraph_apps.detection.regex_scanner import Match
+from wiregraph_core.types import Match
 
 
 def test_dedupe_drops_overlapping_same_asset_match():
@@ -23,15 +24,15 @@ def test_dedupe_keeps_different_asset_on_same_span():
     assert dedupe_against(presidio, regex) == presidio
 
 
-def test_presidio_missing_raises_improperly_configured(monkeypatch):
-    import wiregraph_apps.detection.presidio_scanner as mod
+def test_presidio_missing_raises_presidio_unavailable(monkeypatch):
+    import wiregraph_core.scanner.presidio as mod
 
     def fake_import():
-        raise mod.ImproperlyConfigured("simulated missing presidio")
+        raise PresidioUnavailable("simulated missing presidio")
 
     monkeypatch.setattr(mod, "_import_analyzer", fake_import)
     scanner = PresidioScanner()
-    with pytest.raises(mod.ImproperlyConfigured):
+    with pytest.raises(PresidioUnavailable):
         scanner.scan("some text with jane@example.com")
 
 

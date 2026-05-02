@@ -59,7 +59,7 @@ def test_task_run_persists_presidio_events(membership):
 
     with override_settings(WIREGRAPH={"ENABLED": True, "ENABLE_PRESIDIO": True}):
         with patch(
-            "wiregraph_apps.detection.presidio_scanner.PresidioScanner.scan",
+            "wiregraph_core.scanner.presidio.PresidioScanner.scan",
             return_value=fake_matches,
         ):
             result = tasks._run(
@@ -98,7 +98,7 @@ def test_task_run_dedupes_against_regex(membership):
 
     with override_settings(WIREGRAPH={"ENABLED": True, "ENABLE_PRESIDIO": True}):
         with patch(
-            "wiregraph_apps.detection.presidio_scanner.PresidioScanner.scan",
+            "wiregraph_core.scanner.presidio.PresidioScanner.scan",
             return_value=[Match("email", 0, 16, "jane@example.com", 0.85)],
         ):
             result = tasks._run(
