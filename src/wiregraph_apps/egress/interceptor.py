@@ -40,7 +40,7 @@ from wiregraph_apps.common.conf import get_config, get_max_body_size
 from wiregraph_apps.common.request_context import get_current_request_id
 from wiregraph_apps.common.tenancy import get_current_tenant
 from wiregraph_apps.detection.allowlist import filter_matches
-from wiregraph_apps.detection.classifier import (
+from wiregraph_apps.detection.classifier_django import (
     apply_shadow_decision,
     classify_for_event,
     effective_alert_level,
