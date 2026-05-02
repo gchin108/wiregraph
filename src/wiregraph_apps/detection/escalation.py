@@ -1,62 +1,29 @@
-"""Suspicious → prohibited escalation (proposal §5).
+"""Django adapter for :mod:`wiregraph_core.escalation`.
 
-After ``ESCALATION_SUSPICIOUS_COUNT`` suspicious hits on the same
-``(tenant, asset, service)`` key inside ``ESCALATION_WINDOW_SECONDS``, promote
-the next alert to prohibited priority and surface a "consider an explicit
-rule" hint.
-
-Counters live in Django's cache (atomic INCR with a sliding TTL). On promotion
-the counter is reset and a daily rollup row is upserted so the shadow report
-can expose ``suspicious_escalated_total`` — the calibration signal for the
-threshold itself (the last open question in the proposal).
+Reads escalation thresholds from settings, injects ``django.core.cache``,
+and writes the daily promotion rollup row when the pure helper signals an
+escalation.
 """
 
 from __future__ import annotations
 
-import hashlib
 import logging
-from typing import Iterable
-
-from django.core.cache import cache
 
 from wiregraph_apps.common.conf import get_escalation_config
+from wiregraph_apps.detection.cache_django import get_cache
+from wiregraph_core.escalation import should_escalate as _core_should_escalate
 
 logger = logging.getLogger(__name__)
 
-_PREFIX = "wiregraph:esc:"
-
-
-def _key(parts: Iterable[object]) -> str:
-    raw = "|".join("" if p is None else str(p) for p in parts)
-    digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
-    return f"{_PREFIX}{digest}"
-
 
 def should_escalate(tenant_id, asset_name: str, domain: str) -> bool:
-    """Return True when the *next* suspicious alert for this key should be promoted.
-
-    On return-True the cache counter is reset so the user isn't paged on every
-    subsequent suspicious hit — they must accumulate another full window first.
-    """
     threshold, window = get_escalation_config()
-    if threshold <= 0:
-        return False
-    key = _key((tenant_id, asset_name, domain))
-    # cache.incr raises ValueError if the key is absent; seed with add().
-    if cache.add(key, 1, timeout=window):
-        count = 1
-    else:
-        try:
-            count = cache.incr(key)
-        except ValueError:
-            # Key expired between add() and incr() — treat as fresh.
-            cache.add(key, 1, timeout=window)
-            count = 1
-    if count >= threshold:
-        cache.delete(key)
+    promoted = _core_should_escalate(
+        get_cache(), (tenant_id, asset_name, domain), threshold, window
+    )
+    if promoted:
         _record_promotion(tenant_id)
-        return True
-    return False
+    return promoted
 
 
 def _record_promotion(tenant_id) -> None:
