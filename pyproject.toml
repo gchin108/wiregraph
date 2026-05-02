@@ -57,7 +57,7 @@ Homepage = "https://github.com/wiregraph/wiregraph"
 Documentation = "https://wiregraph.readthedocs.io"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/wiregraph", "src/wiregraph_apps"]
+packages = ["src/wiregraph", "src/wiregraph_apps", "src/wiregraph_core"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings"
