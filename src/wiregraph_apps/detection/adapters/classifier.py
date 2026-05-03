@@ -34,15 +34,11 @@ _shadow_logger = logging.getLogger("wiregraph.shadow")
 
 def check_is_new_flow(tenant, data_asset, external_service) -> bool:
     """First sight of the ``(tenant, asset, service)`` triple?"""
-    from wiregraph_apps.detection.models import DataEvent
+    from wiregraph_apps.detection.selectors import is_new_flow
 
     if external_service is None:
         return False
-    return not DataEvent.objects.filter(
-        tenant=tenant,
-        data_asset=data_asset,
-        external_service=external_service,
-    ).exists()
+    return is_new_flow(tenant, data_asset, external_service)
 
 
 def classify_for_event(tenant, data_event, external_service) -> tuple[Outcome, str]:
@@ -52,7 +48,7 @@ def classify_for_event(tenant, data_event, external_service) -> tuple[Outcome, s
     can ``exists()``-check past events with the new event's own row excluded
     by PK.
     """
-    from wiregraph_apps.detection.models import DataEvent
+    from wiregraph_apps.detection.selectors import is_new_flow_for_event
 
     asset = data_event.data_asset
     host = external_service.domain if external_service is not None else ""
@@ -77,15 +73,7 @@ def classify_for_event(tenant, data_event, external_service) -> tuple[Outcome, s
 
     is_new = False
     if external_service is not None:
-        is_new = (
-            not DataEvent.objects.filter(
-                tenant=tenant,
-                data_asset=asset,
-                external_service=external_service,
-            )
-            .exclude(pk=data_event.pk)
-            .exists()
-        )
+        is_new = is_new_flow_for_event(tenant, data_event, external_service)
 
     asset_spec = Asset(
         name=asset.name,
@@ -107,28 +95,6 @@ def effective_alert_level(
     if thresholds is None:
         thresholds = get_confidence_thresholds()
     return _pure_effective_alert_level(outcome, confidence, thresholds)
-
-
-def _increment_shadow_counter(event, level: str) -> None:
-    """Upsert the daily rollup row. Best-effort — failures are swallowed."""
-    from django.db.models import F
-
-    from wiregraph_apps.reporting.models import ShadowDecisionCounter
-
-    day = event.timestamp.date() if getattr(event, "timestamp", None) else None
-    tenant_id = getattr(event, "tenant_id", None)
-    if day is None or tenant_id is None:
-        return
-
-    obj, created = ShadowDecisionCounter.objects.get_or_create(
-        tenant_id=tenant_id,
-        day=day,
-        outcome=event.outcome,
-        shadow_alert_level=level,
-        defaults={"count": 1},
-    )
-    if not created:
-        ShadowDecisionCounter.objects.filter(pk=obj.pk).update(count=F("count") + 1)
 
 
 def apply_shadow_decision(event) -> str:
@@ -161,7 +127,9 @@ def apply_shadow_decision(event) -> str:
     )
 
     try:
-        _increment_shadow_counter(event, level)
+        from wiregraph_apps.detection.persistence import update_shadow_counter
+
+        update_shadow_counter(event, level)
     except Exception:
         _shadow_logger.exception("wiregraph: shadow counter increment failed")
 
