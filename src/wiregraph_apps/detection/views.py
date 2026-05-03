@@ -7,7 +7,7 @@ from rest_framework.viewsets import ViewSet
 
 from wiregraph_apps.common.tenancy import resolve_tenant
 from wiregraph_apps.common.views import TenantScopedMixin, TenantScopedViewSet
-from wiregraph_apps.detection.allowlist import invalidate_tenant_rules
+from wiregraph_apps.detection.adapters.allowlist import invalidate_tenant_rules
 from wiregraph_apps.detection.models import AllowlistRule, DataAsset, DataEvent
 from wiregraph_apps.detection.selectors import (
     endpoint_node_events,

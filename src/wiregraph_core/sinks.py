@@ -6,7 +6,7 @@ lets us classify a sink the moment it's observed — `api.stripe.com` is
 meaningful inputs without per-tenant setup.
 
 This module is framework-agnostic: it only knows how to match a host against
-in-memory catalog dicts. The Django wrapper (``wiregraph_apps.sinks``) is
+in-memory catalog dicts. The Django wrapper (``wiregraph_apps.detection.adapters.sinks``) is
 responsible for layering tenant DB overrides + settings overrides on top.
 
 Resolution order (applied by the host):

@@ -2,7 +2,7 @@
 
 Phase 2 will replace direct ``django.core.cache`` calls in escalation/dedup
 with an injected implementation of :class:`CacheProtocol`. A Django-backed
-adapter will live in ``wiregraph_apps.detection.cache_django``.
+adapter will live in ``wiregraph_apps.detection.adapters.cache``.
 """
 
 from __future__ import annotations

@@ -2,7 +2,7 @@ import pytest
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from wiregraph_apps.detection.allowlist import (
+from wiregraph_apps.detection.adapters.allowlist import (
     filter_matches,
     invalidate_tenant_rules,
     is_allowlisted,

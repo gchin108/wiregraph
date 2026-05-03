@@ -14,7 +14,7 @@ from wiregraph_apps.common.conf import (
     get_llm_policy,
     is_shadow_mode,
 )
-from wiregraph_apps.detection.allowlist import find_matching_rule
+from wiregraph_apps.detection.adapters.allowlist import find_matching_rule
 from wiregraph_core.classifier import (
     classify as _pure_classify,
     effective_alert_level as _pure_effective_alert_level,

@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Iterable
 
 from wiregraph_apps.common.conf import get_allowlisted_fields
-from wiregraph_apps.detection.cache_django import get_cache
+from wiregraph_apps.detection.adapters.cache import get_cache
 from wiregraph_core.allowlist import AllowlistEngine, Rule
 from wiregraph_core.types import Match
 

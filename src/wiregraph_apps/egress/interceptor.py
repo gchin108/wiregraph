@@ -39,8 +39,8 @@ from django.utils import timezone
 from wiregraph_apps.common.conf import get_config, get_max_body_size
 from wiregraph_apps.common.request_context import get_current_request_id
 from wiregraph_apps.common.tenancy import get_current_tenant
-from wiregraph_apps.detection.allowlist import filter_matches
-from wiregraph_apps.detection.classifier_django import (
+from wiregraph_apps.detection.adapters.allowlist import filter_matches
+from wiregraph_apps.detection.adapters.classifier import (
     apply_shadow_decision,
     classify_for_event,
     effective_alert_level,
@@ -50,7 +50,7 @@ from wiregraph_apps.detection.regex_scanner import RegexScanner, redact
 from wiregraph_apps.detection.signals import event_classified, new_data_asset_discovered
 from wiregraph_apps.detection.tasks import enqueue_presidio_scan
 from wiregraph_apps.egress.signals import egress_pii_leak
-from wiregraph_apps.sinks import resolve_sink, sensitivity_for
+from wiregraph_apps.detection.adapters.sinks import resolve_sink, sensitivity_for
 
 logger = logging.getLogger(__name__)
 

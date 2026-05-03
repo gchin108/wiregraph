@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 
 from wiregraph_apps.common.conf import get_escalation_config
-from wiregraph_apps.detection.cache_django import get_cache
+from wiregraph_apps.detection.adapters.cache import get_cache
 from wiregraph_core.escalation import should_escalate as _core_should_escalate
 
 logger = logging.getLogger(__name__)

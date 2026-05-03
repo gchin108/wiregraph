@@ -8,10 +8,10 @@ single, named import to inject so swapping the backend later is one edit.
 
 from __future__ import annotations
 
-from django.core.cache import cache as _django_cache
+from django.core.cache import cache as _cache
 
 from wiregraph_core.cache import CacheProtocol
 
 
 def get_cache() -> CacheProtocol:
-    return _django_cache
+    return _cache
