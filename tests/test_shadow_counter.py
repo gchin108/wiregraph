@@ -4,7 +4,7 @@ import pytest
 from django.test import override_settings
 
 from tests.fixtures.factories import DataEventFactory
-from wiregraph_apps.detection.classifier_django import apply_shadow_decision
+from wiregraph_apps.detection.adapters.classifier import apply_shadow_decision
 from wiregraph_apps.reporting.models import ShadowDecisionCounter
 
 pytestmark = pytest.mark.django_db

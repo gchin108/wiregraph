@@ -44,7 +44,7 @@ class SinkCatalogOverride(TenantScopedModel):
     """Tenant-scoped override of a sink catalog entry.
 
     Matched by ``domain_suffix`` (longest wins) against outbound hosts. See
-    ``wiregraph_apps.sinks.resolve_sink`` for resolution order.
+    ``wiregraph_apps.detection.adapters.sinks.resolve_sink`` for resolution order.
     """
 
     domain_suffix = models.CharField(

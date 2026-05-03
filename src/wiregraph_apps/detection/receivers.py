@@ -21,7 +21,7 @@ from django.dispatch import receiver
 
 from wiregraph_apps.common.conf import get_config, get_dedup_windows
 from wiregraph_apps.detection.dedup import should_emit
-from wiregraph_apps.detection.escalation import should_escalate
+from wiregraph_apps.detection.adapters.escalation import should_escalate
 from wiregraph_apps.detection.signals import event_classified, new_data_asset_discovered
 
 logger = logging.getLogger(__name__)

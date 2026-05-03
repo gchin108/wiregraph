@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from wiregraph_apps.detection.allowlist import invalidate_tenant_rules
+from wiregraph_apps.detection.adapters.allowlist import invalidate_tenant_rules
 
 from .models import AllowlistRule, DataAsset, DataEvent
 

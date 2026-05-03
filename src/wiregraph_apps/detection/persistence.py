@@ -13,8 +13,8 @@ from typing import Iterable
 from django.db import transaction
 from django.utils import timezone
 
-from wiregraph_apps.detection.allowlist import filter_matches
-from wiregraph_apps.detection.classifier_django import (
+from wiregraph_apps.detection.adapters.allowlist import filter_matches
+from wiregraph_apps.detection.adapters.classifier import (
     apply_shadow_decision,
     classify_for_event,
     effective_alert_level,
@@ -26,7 +26,7 @@ from wiregraph_apps.detection.signals import (
     new_data_asset_discovered,
     pii_detected,
 )
-from wiregraph_apps.sinks import sensitivity_for
+from wiregraph_apps.detection.adapters.sinks import sensitivity_for
 
 logger = logging.getLogger(__name__)
 

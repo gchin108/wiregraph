@@ -1,8 +1,8 @@
-"""Tests for ``wiregraph_apps.sinks.resolve_sink`` override precedence."""
+"""Tests for ``wiregraph_apps.detection.adapters.sinks.resolve_sink`` override precedence."""
 
 import pytest
 
-from wiregraph_apps.sinks import (
+from wiregraph_apps.detection.adapters.sinks import (
     ASSET_SENSITIVITY,
     CATEGORY_DEFAULTS,
     resolve_sink,
