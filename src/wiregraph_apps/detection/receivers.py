@@ -1,11 +1,15 @@
 """Signal receivers for alert notifications.
 
-Phase 3 routes alerts off the new ``event_classified`` signal and branches on
-the effective alert level (outcome gated by detector confidence, proposal §4).
-The legacy ``pii_detected`` and ``egress_pii_leak`` signals still fire — but
-gated on effective level at the dispatch site — so external subscribers keep
-working. The library no longer subscribes to them itself (the new
-``event_classified`` receiver covers those alerts with the correct semantics).
+Receivers here handle *side-effects* triggered by detection events:
+Slack/pager webhook POSTs, dedup gating, and digest counter updates.
+Persistence (DataEvent rows, shadow/escalation rollups) lives in
+:mod:`wiregraph_apps.detection.persistence` and is not duplicated here.
+
+Routing: alerts ride :data:`~wiregraph_apps.detection.signals.event_classified`
+and branch on the effective alert level (outcome gated by detector
+confidence). The legacy ``pii_detected`` and ``egress_pii_leak`` signals
+still fire from persistence so external subscribers keep working, but the
+library no longer subscribes to them itself.
 
 The outbound POST is marked internal so the egress interceptor does not
 re-ingest it (which would cause an infinite loop). If the webhook URL is
