@@ -56,11 +56,18 @@ Hit any endpoint, then check `/api/v1/detection/events/`.
 
 ## Install extras
 
-```bash
-pip install wiregraph[presidio]    # ML detection (also: python -m spacy download en_core_web_lg)
-pip install wiregraph[export]      # PDF/JSON reports
-pip install wiregraph[all]
-```
+Wiregraph ships in slices so you only pull in what you need.
+
+| Install line | What you get |
+|---|---|
+| `pip install wiregraph` | Core middleware + bundled admin dashboard at `/admin/wiregraph/dashboard/`. No DRF. |
+| `pip install wiregraph[drf]` | Adds the JSON API at `/api/v1/` (viewsets, JWT auth, OpenAPI schema). Required by the React `wiregraph-dashboard` consumer. |
+| `pip install wiregraph[presidio]` | ML-based detection. Also run `python -m spacy download en_core_web_lg`. |
+| `pip install wiregraph[export]` | PDF/JSON compliance reports. |
+| `pip install wiregraph[postgres]` | `psycopg[binary]` for Postgres backends. |
+| `pip install wiregraph[all]` | Everything above plus dev tooling. |
+
+If you skip `[drf]`, the `/api/v1/` routes are not registered — the admin dashboard still works.
 
 ## Security guarantee
 
