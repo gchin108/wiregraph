@@ -71,11 +71,11 @@ Today `signals.py` and `receivers.py` are loosely coupled. Document the public s
 - Route it through `pipeline.run_pipeline` and `persistence.record_event` so request and egress paths share one code path.
 - **Done when:** egress and detection middleware share the same orchestration entry point.
 
-### Phase 5 — Admin & management commands audit (1 day)
-- `admin.py`: ensure no admin action re-implements logic that lives in adapters/persistence (e.g., re-classification on save).
-- `wiregraph_doctor`: extend to validate adapter wiring (cache backend implements `CacheProtocol`, configured sink overrides resolve, etc.).
-- `wiregraph_init`: confirm it uses `adapters.sinks` for catalog seeding, not raw model inserts where avoidable.
-- **Done when:** `wiregraph_doctor` reports adapter health; admin actions only call `persistence.*`.
+### Phase 5 — Admin & management commands audit (1 day) ✅
+- `admin.py`: audited — no admin action re-implements adapter/persistence logic. The only side-effect on save/delete is `adapters.allowlist.invalidate_tenant_rules`, which is the correct entry point.
+- `wiregraph_doctor`: added `_check_cache_adapter` (asserts `get_cache()` satisfies `CacheProtocol`) and `_check_sink_overrides` (resolves every configured suffix through `adapters.sinks.resolve_sink` and flags any that fall through to `unknown`).
+- `wiregraph_init`: N/A — it's a settings-file scaffolder (appends `INSTALLED_APPS`/`MIDDLEWARE`/`WIREGRAPH` block); it does no catalog seeding or model inserts. Catalog seeding lives in the demo's `seed_demo` command, which already iterates `adapters.sinks.BUILTIN_CATALOG`.
+- **Done when:** `wiregraph_doctor` reports adapter health; admin actions only call `persistence.*`. ✅
 
 ### Phase 6 — Models cleanup (1–2 days, *optional*)
 Audit `detection/models.py` for fields that exist solely to bridge old direct-ORM call sites; remove or document any that ring 1 + the adapter layer have made redundant. Migration-cost gated; skip if churn outweighs benefit.
