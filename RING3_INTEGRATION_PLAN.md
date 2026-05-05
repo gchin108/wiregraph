@@ -57,10 +57,12 @@ Mechanical relocation, one app at a time.
 - Each `<app>/api/__init__.py` calls `wiregraph._drf.require_drf()` at import time so a missing extra produces a clear error, not a cryptic `ModuleNotFoundError`.
 - **Done when:** `grep -rnE "^(from|import) (rest_framework|drf_spectacular)" src/wiregraph_apps/ | grep -v /api/` returns nothing — module-level imports only; lazy imports inside method bodies (e.g. `common/middleware.py`'s `JWTAuthMiddleware`) are intentional and keep module load DRF-free. Full test suite passes with `[drf]` installed.
 
-### Phase 3 — Conditional URL inclusion (0.5 day)
-- `wiregraph/urls.py` (or wherever `/api/v1/` is wired): wrap the `include("wiregraph_apps.<app>.api.urls")` calls in a `try: import rest_framework` guard. When DRF is absent, the API routes simply aren't registered; admin routes remain.
-- Add a startup log line at INFO when API routes are skipped, so consumers know why `/api/v1/` 404s.
-- **Done when:** in a no-DRF venv, `manage.py check` passes, `manage.py runserver` boots, `/admin/wiregraph/dashboard/` renders, `/api/v1/detection/events/` returns 404.
+### Phase 3 — Conditional URL inclusion + API auto-exclude (0.5 day)
+- Ship a single library-owned `wiregraph.api_urls` urlconf that conditionally includes each `<app>.api.urls` based on `wiregraph._drf.drf_available()`. When DRF is absent, `urlpatterns` is empty; admin routes remain. Consumers mount it once: `path("api/v1/", include("wiregraph.api_urls"))`. Replaces the per-app includes currently in `config/urls.py` and `django-demo/demo/urls.py`.
+- Within `api_urls`, anchor a sentinel pattern named `wiregraph-api-root` (e.g. an empty path returning a 200 "API root" stub) so the mount prefix is reverse-discoverable from anywhere in the project.
+- Add an INFO log line when API routes are skipped, so consumers know why `/api/v1/` 404s.
+- Add `AUTO_EXCLUDE_API` (default `True`) to the `WIREGRAPH` config and a `_resolve_api_prefix()` helper in `common/conf.py` that returns `reverse("wiregraph-api-root")` or `None` on `NoReverseMatch`. `get_excluded_paths()` appends it, mirroring `AUTO_EXCLUDE_ADMIN`. **Why this matters:** without it, the detection middleware re-scans the JSON API's own responses — `DataEventSerializer` emits redacted PII snippets that the regex/presidio scanner re-flags, generating fresh `DataEvent` rows on every dashboard poll and (under SQLite) deadlocking writers with `OperationalError: database is locked`.
+- **Done when:** in a no-DRF venv, `manage.py check` passes, `runserver` boots, `/admin/wiregraph/dashboard/` renders, `/api/v1/detection/events/` returns 404. With `[drf]` installed, polling `/api/v1/detection/endpoint-nodes/` repeatedly does not increase the `DataEvent` row count (auto-exclude verified end-to-end).
 
 ### Phase 4 — `wiregraph_doctor` API health check (0.5 day)
 Extend the existing doctor command (ring 2 phase 5) with API-surface awareness.
