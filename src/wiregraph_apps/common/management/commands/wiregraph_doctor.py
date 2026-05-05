@@ -24,6 +24,8 @@ class Command(BaseCommand):
             self._check_middleware_order,
             self._check_egress_patch_state,
             self._check_dataevent_indexes,
+            self._check_cache_adapter,
+            self._check_sink_overrides,
         ]
         has_failure = False
         for check in checks:
@@ -100,3 +102,40 @@ class Command(BaseCommand):
         if index_count == 0:
             return FAIL, f"no indexes found on {table} — run migrate"
         return OK, f"{table} has {index_count} index(es)"
+
+    def _check_cache_adapter(self):
+        from wiregraph_apps.detection.adapters.cache import get_cache
+        from wiregraph_core.cache import CacheProtocol
+
+        try:
+            backend = get_cache()
+        except Exception as exc:
+            return FAIL, f"cache adapter failed to load: {exc}"
+        if not isinstance(backend, CacheProtocol):
+            return FAIL, (
+                f"cache backend {type(backend).__name__} does not satisfy "
+                f"CacheProtocol (needs get/set/add/incr/delete)"
+            )
+        return OK, f"cache adapter: {type(backend).__module__}.{type(backend).__name__}"
+
+    def _check_sink_overrides(self):
+        from wiregraph_apps.common.conf import get_sink_overrides
+        from wiregraph_apps.detection.adapters.sinks import resolve_sink
+
+        overrides = get_sink_overrides()
+        if not overrides:
+            return OK, "no SINK_OVERRIDES configured"
+
+        bad: list[str] = []
+        for suffix in overrides:
+            try:
+                info = resolve_sink(suffix)
+            except Exception as exc:
+                bad.append(f"{suffix} (raised {exc.__class__.__name__})")
+                continue
+            if info.category == "unknown" or info.trust_tier == "unknown":
+                bad.append(f"{suffix} (resolved to unknown category/tier)")
+
+        if bad:
+            return FAIL, "SINK_OVERRIDES failed to resolve: " + ", ".join(bad)
+        return OK, f"SINK_OVERRIDES resolve cleanly ({len(overrides)} entry(ies))"
