@@ -6,16 +6,16 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSet
 
 from wiregraph_apps.common.tenancy import resolve_tenant
-from wiregraph_apps.common.views import TenantScopedMixin, TenantScopedViewSet
+from wiregraph_apps.common.api.views import TenantScopedMixin, TenantScopedViewSet
 from wiregraph_apps.detection.adapters.allowlist import invalidate_tenant_rules
 from wiregraph_apps.detection.models import AllowlistRule, DataAsset, DataEvent
-from wiregraph_apps.detection.selectors import (
+from wiregraph_apps.detection.api.selectors import (
     endpoint_node_events,
     event_trace,
     get_endpoint_node,
     list_endpoint_nodes,
 )
-from wiregraph_apps.detection.serializers import (
+from wiregraph_apps.detection.api.serializers import (
     AllowlistRuleSerializer,
     DataAssetSerializer,
     DataEventSerializer,
