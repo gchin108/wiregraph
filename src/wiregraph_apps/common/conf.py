@@ -15,6 +15,7 @@ DEFAULTS = {
     "MAX_BODY_SIZE": 1_048_576,
     "EXCLUDED_PATHS": [],
     "AUTO_EXCLUDE_ADMIN": True,
+    "AUTO_EXCLUDE_API": True,
     "TENANT_RESOLVER": "wiregraph.resolvers.default",
     "TENANT_MODEL": "wiregraph_tenants.Tenant",
     "DISABLE_BUILTIN_ALERTS": False,
@@ -46,6 +47,7 @@ class WiregraphSettings(TypedDict, total=False):
     MAX_BODY_SIZE: int
     EXCLUDED_PATHS: list[str]
     AUTO_EXCLUDE_ADMIN: bool
+    AUTO_EXCLUDE_API: bool
     TENANT_RESOLVER: str
     TENANT_MODEL: str
     DISABLE_BUILTIN_ALERTS: bool
@@ -86,6 +88,10 @@ def get_excluded_paths() -> list[str]:
         admin_prefix = _resolve_admin_prefix()
         if admin_prefix and admin_prefix not in paths:
             paths.append(admin_prefix)
+    if get_config("AUTO_EXCLUDE_API"):
+        api_prefix = _resolve_api_prefix()
+        if api_prefix and api_prefix not in paths:
+            paths.append(api_prefix)
     return paths
 
 
@@ -98,6 +104,26 @@ def _resolve_admin_prefix() -> str | None:
     try:
         from django.urls import reverse
         return reverse("admin:index")
+    except Exception:
+        return None
+
+
+def _resolve_api_prefix() -> str | None:
+    """Return the mounted ``wiregraph.api_urls`` prefix, or None if unmounted.
+
+    Without this guard the detection middleware re-scans the JSON API's own
+    responses — ``DataEventSerializer`` emits redacted PII snippets that the
+    regex/presidio scanner re-flags, generating fresh ``DataEvent`` rows on
+    every dashboard poll.
+    """
+    try:
+        from django.urls import NoReverseMatch, reverse
+    except Exception:
+        return None
+    try:
+        return reverse("wiregraph-api-root")
+    except NoReverseMatch:
+        return None
     except Exception:
         return None
 

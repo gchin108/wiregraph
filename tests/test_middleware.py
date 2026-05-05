@@ -107,6 +107,28 @@ def test_admin_auto_exclude_can_be_disabled(rf, user_with_tenant, leaky_view, se
     assert DataEvent.objects.count() > 0
 
 
+def test_api_path_auto_excluded(rf, user_with_tenant, leaky_view):
+    """The mounted wiregraph.api_urls prefix should be skipped by default.
+
+    Prevents the JSON API's own redacted-PII responses from feeding back into
+    the scanner on every dashboard poll.
+    """
+    mw = PIIDetectionMiddleware(leaky_view)
+    req = rf.get("/api/v1/detection/endpoint-nodes/")
+    req.user = user_with_tenant
+    mw(req)
+    assert DataEvent.objects.count() == 0
+
+
+def test_api_auto_exclude_can_be_disabled(rf, user_with_tenant, leaky_view, settings):
+    settings.WIREGRAPH = {**getattr(settings, "WIREGRAPH", {}), "AUTO_EXCLUDE_API": False}
+    mw = PIIDetectionMiddleware(leaky_view)
+    req = rf.get("/api/v1/detection/endpoint-nodes/")
+    req.user = user_with_tenant
+    mw(req)
+    assert DataEvent.objects.count() > 0
+
+
 def test_sampling_rate_zero_skips_scan(rf, user_with_tenant, leaky_view, settings):
     settings.WIREGRAPH = {**getattr(settings, "WIREGRAPH", {}), "SAMPLING_RATE": 0.0}
     mw = PIIDetectionMiddleware(leaky_view)
