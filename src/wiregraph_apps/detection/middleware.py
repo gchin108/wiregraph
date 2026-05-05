@@ -1,8 +1,9 @@
 """Runtime PII detection middleware.
 
-Scans inbound request bodies and outbound response bodies for PII using the
-regex scanner, and persists redacted ``DataEvent`` rows scoped to the
-authenticated tenant.
+HTTP-layer adapter only: parses request/response bodies, applies excluded-path
+and sampling guards, then hands the payload to
+:func:`wiregraph_apps.detection.pipeline.run_pipeline`. All scanning,
+persistence, and signal dispatch live downstream.
 
 Performance guards (checked in this order):
     1. ``EXCLUDED_PATHS`` prefix match
@@ -18,7 +19,6 @@ import random
 import uuid
 
 from wiregraph_apps.common.conf import (
-    get_config,
     get_excluded_paths,
     get_max_body_size,
     get_sampling_rate,
@@ -32,9 +32,7 @@ from wiregraph_apps.common.tenancy import (
     resolve_tenant,
     set_current_tenant,
 )
-from wiregraph_apps.detection.persistence import persist_matches
-from wiregraph_apps.detection.regex_scanner import RegexScanner
-from wiregraph_apps.detection.tasks import enqueue_presidio_scan
+from wiregraph_apps.detection.pipeline import run_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +48,6 @@ _REQUEST_ID_ATTR = "_wiregraph_request_id"
 class PIIDetectionMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
-        self.scanner = RegexScanner()
 
     def __call__(self, request):
         skip_scan = self._should_skip(request)
@@ -105,90 +102,75 @@ class PIIDetectionMiddleware:
         return any(ct.startswith(prefix) or ct == prefix.rstrip("/") for prefix in _SCANNABLE_CONTENT_TYPES)
 
     # ------------------------------------------------------------------
-    # Scans
+    # HTTP body extraction
     # ------------------------------------------------------------------
 
-    def _scan_inbound(self, request) -> None:
+    def _request_text(self, request) -> str | None:
         if not self._is_scannable(request.META.get("CONTENT_TYPE", "")):
-            return
+            return None
         try:
             length = int(request.META.get("CONTENT_LENGTH") or 0) or None
         except (TypeError, ValueError):
             length = None
         if self._body_too_large(length):
-            return
-
+            return None
         body = getattr(request, "body", b"") or b""
         if not body:
-            return
+            return None
         try:
-            text = body.decode("utf-8", errors="replace")
+            return body.decode("utf-8", errors="replace")
         except Exception:
-            return
+            return None
 
-        matches = self.scanner.scan(text)
+    def _response_text(self, response) -> str | None:
+        if getattr(response, "streaming", False):
+            return None
+        if not self._is_scannable(response.get("Content-Type", "")):
+            return None
+        content = getattr(response, "content", b"") or b""
+        if len(content) > get_max_body_size():
+            return None
+        try:
+            return content.decode("utf-8", errors="replace")
+        except Exception:
+            return None
+
+    # ------------------------------------------------------------------
+    # Pipeline dispatch
+    # ------------------------------------------------------------------
+
+    def _scan_inbound(self, request) -> None:
+        text = self._request_text(request)
+        if text is None:
+            return
         tenant = resolve_tenant(request)
         if tenant is None:
             logger.debug("wiregraph: no tenant for request %s; skipping", request.path)
             return
-
-        request_id = getattr(request, _REQUEST_ID_ATTR, "")
-        if matches:
-            persist_matches(
-                tenant=tenant,
-                matches=matches,
-                direction="inbound",
-                endpoint=request.path,
-                method=request.method or "",
-                detection_method="regex",
-                request_id=request_id,
-                request=request,
-            )
-        enqueue_presidio_scan(
+        run_pipeline(
             tenant=tenant,
             text=text,
             direction="inbound",
             endpoint=request.path,
             method=request.method or "",
-            request_id=request_id,
+            request_id=getattr(request, _REQUEST_ID_ATTR, ""),
+            request=request,
         )
 
     def _scan_outbound(self, request, response) -> None:
-        if getattr(response, "streaming", False):
+        text = self._response_text(response)
+        if text is None:
             return
-        if not self._is_scannable(response.get("Content-Type", "")):
-            return
-        content = getattr(response, "content", b"") or b""
-        if len(content) > get_max_body_size():
-            return
-        try:
-            text = content.decode("utf-8", errors="replace")
-        except Exception:
-            return
-
-        matches = self.scanner.scan(text)
         tenant = resolve_tenant(request)
         if tenant is None:
             logger.debug("wiregraph: no tenant for response %s; skipping", request.path)
             return
-
-        request_id = getattr(request, _REQUEST_ID_ATTR, "")
-        if matches:
-            persist_matches(
-                tenant=tenant,
-                matches=matches,
-                direction="outbound",
-                endpoint=request.path,
-                method=request.method or "",
-                detection_method="regex",
-                request_id=request_id,
-                request=request,
-            )
-        enqueue_presidio_scan(
+        run_pipeline(
             tenant=tenant,
             text=text,
             direction="outbound",
             endpoint=request.path,
             method=request.method or "",
-            request_id=request_id,
+            request_id=getattr(request, _REQUEST_ID_ATTR, ""),
+            request=request,
         )
