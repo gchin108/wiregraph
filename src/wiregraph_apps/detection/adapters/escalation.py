@@ -1,8 +1,7 @@
 """Django adapter for :mod:`wiregraph_core.escalation`.
 
 Reads escalation thresholds from settings, injects ``django.core.cache``,
-and writes the daily promotion rollup row when the pure helper signals an
-escalation.
+and delegates the daily promotion rollup write to ``persistence``.
 """
 
 from __future__ import annotations
@@ -22,27 +21,7 @@ def should_escalate(tenant_id, asset_name: str, domain: str) -> bool:
         get_cache(), (tenant_id, asset_name, domain), threshold, window
     )
     if promoted:
-        _record_promotion(tenant_id)
+        from wiregraph_apps.detection.persistence import record_escalation
+
+        record_escalation(tenant_id)
     return promoted
-
-
-def _record_promotion(tenant_id) -> None:
-    """Upsert today's escalation rollup row. Best-effort."""
-    from django.db.models import F
-    from django.utils import timezone
-
-    from wiregraph_apps.reporting.models import EscalationCounter
-
-    if tenant_id is None:
-        return
-    day = timezone.now().date()
-    try:
-        obj, created = EscalationCounter.objects.get_or_create(
-            tenant_id=tenant_id,
-            day=day,
-            defaults={"count": 1},
-        )
-        if not created:
-            EscalationCounter.objects.filter(pk=obj.pk).update(count=F("count") + 1)
-    except Exception:
-        logger.exception("wiregraph: escalation rollup upsert failed")
