@@ -1,7 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from wiregraph_apps.detection.views import (
+from wiregraph_apps.detection.api.views import (
     AllowlistRuleViewSet,
     DataAssetViewSet,
     DataEventViewSet,

@@ -55,7 +55,7 @@ Mechanical relocation, one app at a time.
 - For each of `detection`, `egress`, `reporting`, `tenants`: create `<app>/api/__init__.py`; move `serializers.py`, `views.py`, `urls.py` into it; for `detection`, also move the remaining `selectors.py` here.
 - Update internal imports (`from .views` → `from .api.views`, etc.).
 - Each `<app>/api/__init__.py` calls `wiregraph._drf.require_drf()` at import time so a missing extra produces a clear error, not a cryptic `ModuleNotFoundError`.
-- **Done when:** `grep -rn "rest_framework\|drf_spectacular" src/wiregraph_apps/ | grep -v /api/` returns nothing; full test suite passes with `[drf]` installed.
+- **Done when:** `grep -rnE "^(from|import) (rest_framework|drf_spectacular)" src/wiregraph_apps/ | grep -v /api/` returns nothing — module-level imports only; lazy imports inside method bodies (e.g. `common/middleware.py`'s `JWTAuthMiddleware`) are intentional and keep module load DRF-free. Full test suite passes with `[drf]` installed.
 
 ### Phase 3 — Conditional URL inclusion (0.5 day)
 - `wiregraph/urls.py` (or wherever `/api/v1/` is wired): wrap the `include("wiregraph_apps.<app>.api.urls")` calls in a `try: import rest_framework` guard. When DRF is absent, the API routes simply aren't registered; admin routes remain.

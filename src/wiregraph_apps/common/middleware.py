@@ -17,15 +17,17 @@ import logging
 
 from django.contrib.auth.models import AnonymousUser
 from django.utils.functional import SimpleLazyObject
-from rest_framework.exceptions import AuthenticationFailed
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+
+from wiregraph._drf import require_drf
 
 logger = logging.getLogger(__name__)
 
 
 class JWTAuthMiddleware:
     def __init__(self, get_response):
+        require_drf()
+        from rest_framework_simplejwt.authentication import JWTAuthentication
+
         self.get_response = get_response
         self._authenticator = JWTAuthentication()
 
@@ -36,6 +38,9 @@ class JWTAuthMiddleware:
         return self.get_response(request)
 
     def _resolve(self, request):
+        from rest_framework.exceptions import AuthenticationFailed
+        from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+
         header = self._authenticator.get_header(request)
         if header is None:
             return AnonymousUser()
