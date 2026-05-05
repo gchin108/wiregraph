@@ -34,7 +34,7 @@ _shadow_logger = logging.getLogger("wiregraph.shadow")
 
 def check_is_new_flow(tenant, data_asset, external_service) -> bool:
     """First sight of the ``(tenant, asset, service)`` triple?"""
-    from wiregraph_apps.detection.selectors import is_new_flow
+    from wiregraph_apps.detection.flow_state import is_new_flow
 
     if external_service is None:
         return False
@@ -48,7 +48,7 @@ def classify_for_event(tenant, data_event, external_service) -> tuple[Outcome, s
     can ``exists()``-check past events with the new event's own row excluded
     by PK.
     """
-    from wiregraph_apps.detection.selectors import is_new_flow_for_event
+    from wiregraph_apps.detection.flow_state import is_new_flow_for_event
 
     asset = data_event.data_asset
     host = external_service.domain if external_service is not None else ""

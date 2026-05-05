@@ -74,29 +74,6 @@ def decode_endpoint_id(node_id: str) -> tuple[str | None, str, str]:
     return (svc or None), endpoint, method
 
 
-def is_new_flow(tenant, data_asset, external_service) -> bool:
-    """First sight of the ``(tenant, asset, service)`` triple?"""
-    return not DataEvent.objects.filter(
-        tenant=tenant,
-        data_asset=data_asset,
-        external_service=external_service,
-    ).exists()
-
-
-def is_new_flow_for_event(tenant, data_event, external_service) -> bool:
-    """Like :func:`is_new_flow` but excludes ``data_event`` itself, so the
-    classifier can call this *after* the freshly persisted row exists."""
-    return (
-        not DataEvent.objects.filter(
-            tenant=tenant,
-            data_asset=data_event.data_asset,
-            external_service=external_service,
-        )
-        .exclude(pk=data_event.pk)
-        .exists()
-    )
-
-
 def _outbound_events(tenant) -> QuerySet[DataEvent]:
     # direction="outbound" with no external_service is a response-body
     # detection (server→client), not a third-party call — exclude from the
