@@ -2,8 +2,9 @@
 
 Monkey-patches ``requests.Session.send`` at app startup so every outbound
 ``requests``-based HTTP call is recorded as an ``ExternalService`` touch and
-scanned for PII in the request body. Matches create ``DataEvent`` rows with
-``direction='egress'`` and fire the ``egress_pii_leak`` signal.
+handed to :func:`wiregraph_apps.detection.pipeline.run_pipeline`. Matches
+create ``DataEvent`` rows with ``direction='egress'`` and fire the
+``egress_pii_leak`` signal.
 
 Scope & limits:
     * Only ``requests``-based traffic. ``httpx``/``aiohttp``/raw sockets are
@@ -27,10 +28,8 @@ Test hygiene:
 from __future__ import annotations
 
 import contextlib
-import json
 import logging
 import threading
-from dataclasses import replace
 from urllib.parse import unquote_plus, urlsplit
 
 from django.utils import timezone
@@ -38,17 +37,14 @@ from django.utils import timezone
 from wiregraph_apps.common.conf import get_config, get_max_body_size
 from wiregraph_apps.common.request_context import get_current_request_id
 from wiregraph_apps.common.tenancy import get_current_tenant
-from wiregraph_apps.detection.persistence import persist_egress_matches
-from wiregraph_apps.detection.regex_scanner import RegexScanner
-from wiregraph_apps.detection.tasks import enqueue_presidio_scan
 from wiregraph_apps.detection.adapters.sinks import resolve_sink
+from wiregraph_apps.detection.pipeline import run_pipeline
 
 logger = logging.getLogger(__name__)
 
 _INTERNAL_HEADER = "X-Wiregraph-Internal"
 _reentry = threading.local()
 _patch_state = {"installed": False, "original": None}
-_scanner = RegexScanner()
 
 
 def _is_internal_call(prepared_request) -> bool:
@@ -164,64 +160,19 @@ def _record_egress(prepared_request, response) -> None:
         content_type = (getattr(prepared_request, "headers", None) or {}).get(
             "Content-Type", ""
         )
-        content_type_lower = content_type.lower()
-        if "application/x-www-form-urlencoded" in content_type_lower:
+        if "application/x-www-form-urlencoded" in content_type.lower():
             body_text = unquote_plus(body_text)
 
-        request_id = get_current_request_id()
-
-        enqueue_presidio_scan(
+        run_pipeline(
             tenant=tenant,
             text=body_text,
             direction="egress",
             endpoint=endpoint,
             method=method,
-            external_service_id=service.pk,
-            request_id=request_id,
-        )
-
-        matches = _scanner.scan(body_text)
-        if not matches:
-            return
-
-        if "application/json" in content_type_lower:
-            matches = _enrich_with_json_path(matches, body_text)
-
-        persist_egress_matches(
-            tenant=tenant,
-            matches=matches,
+            request_id=get_current_request_id(),
             external_service=service,
-            endpoint=endpoint,
-            method=method,
-            request_id=request_id,
-            now=now,
+            content_type=content_type,
         )
-
-
-def _walk_json_strings(obj, prefix: str = "body"):
-    if isinstance(obj, dict):
-        for key, value in obj.items():
-            yield from _walk_json_strings(value, f"{prefix}.{key}")
-    elif isinstance(obj, list):
-        for index, value in enumerate(obj):
-            yield from _walk_json_strings(value, f"{prefix}[{index}]")
-    elif isinstance(obj, str):
-        yield prefix, obj
-
-
-def _enrich_with_json_path(matches, body_text):
-    try:
-        parsed = json.loads(body_text)
-    except (ValueError, TypeError):
-        return matches
-    leaves = list(_walk_json_strings(parsed))
-    if not leaves:
-        return matches
-    enriched = []
-    for match in matches:
-        path = next((p for p, val in leaves if match.value in val), None)
-        enriched.append(replace(match, json_path=path) if path else match)
-    return enriched
 
 
 def _extract_body(prepared_request) -> str | None:
