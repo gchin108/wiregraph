@@ -62,6 +62,7 @@ Mechanical relocation, one app at a time.
 - Within `api_urls`, anchor a sentinel pattern named `wiregraph-api-root` (e.g. an empty path returning a 200 "API root" stub) so the mount prefix is reverse-discoverable from anywhere in the project.
 - Add an INFO log line when API routes are skipped, so consumers know why `/api/v1/` 404s.
 - Add `AUTO_EXCLUDE_API` (default `True`) to the `WIREGRAPH` config and a `_resolve_api_prefix()` helper in `common/conf.py` that returns `reverse("wiregraph-api-root")` or `None` on `NoReverseMatch`. `get_excluded_paths()` appends it, mirroring `AUTO_EXCLUDE_ADMIN`. **Why this matters:** without it, the detection middleware re-scans the JSON API's own responses — `DataEventSerializer` emits redacted PII snippets that the regex/presidio scanner re-flags, generating fresh `DataEvent` rows on every dashboard poll and (under SQLite) deadlocking writers with `OperationalError: database is locked`.
+- **Side effect to flag in the migration note (see phase 6):** because the PII middleware no longer runs on `/api/v1/`, `set_current_tenant` is not called for those requests, and `get_current_tenant()` returns `None` inside any view served under that prefix. Library DRF views are unaffected (`TenantScopedMixin` uses `resolve_tenant(request)` directly), but consumer-defined views must do the same.
 - **Done when:** in a no-DRF venv, `manage.py check` passes, `runserver` boots, `/admin/wiregraph/dashboard/` renders, `/api/v1/detection/events/` returns 404. With `[drf]` installed, polling `/api/v1/detection/endpoint-nodes/` repeatedly does not increase the `DataEvent` row count (auto-exclude verified end-to-end).
 
 ### Phase 4 — `wiregraph_doctor` API health check (0.5 day)
@@ -77,6 +78,7 @@ Extend the existing doctor command (ring 2 phase 5) with API-surface awareness.
 ### Phase 6 — Documentation & migration note (0.5 day)
 - README: install matrix table, when to pick which extra, dashboard-vs-API distinction.
 - CHANGELOG: ring 3 is consumer-visible if DRF was previously a hard dep — call it out as a minor breaking change for anyone whose installer didn't pin extras.
+- CHANGELOG / migration note — `get_current_tenant()` is no longer set on `/api/v1/` paths. `AUTO_EXCLUDE_API` (phase 3) skips the PII middleware for the API mount prefix, which means `set_current_tenant` is not called and `wiregraph_apps.common.tenancy.get_current_tenant()` returns `None` inside any view served under that prefix. Library DRF views are unaffected — they resolve via `TenantScopedMixin.get_tenant()` → `resolve_tenant(request)`, which works off `request.user` (set by `JWTAuthMiddleware` on every request, not gated by exclusion). Consumer-defined views mounted under `/api/v1/` that read the tenant ContextVar must switch to `resolve_tenant(request)`. Caught in the field by `django-demo/demo/views.py::egress_services`, which silently returned `[]` and broke the React dashboard's node graph.
 - `wiregraph_init` scaffolder: if it injects API URL patterns, gate that behind a `--with-api` flag.
 - **Done when:** a new consumer can read the README and pick the right install line on first try.
 

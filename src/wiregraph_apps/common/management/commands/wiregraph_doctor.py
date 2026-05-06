@@ -26,6 +26,7 @@ class Command(BaseCommand):
             self._check_dataevent_indexes,
             self._check_cache_adapter,
             self._check_sink_overrides,
+            self._check_api_extra,
         ]
         has_failure = False
         for check in checks:
@@ -139,3 +140,33 @@ class Command(BaseCommand):
         if bad:
             return FAIL, "SINK_OVERRIDES failed to resolve: " + ", ".join(bad)
         return OK, f"SINK_OVERRIDES resolve cleanly ({len(overrides)} entry(ies))"
+
+    def _check_api_extra(self):
+        import importlib
+
+        from wiregraph._drf import drf_available
+
+        if not drf_available():
+            return OK, (
+                "API extra not installed — install wiregraph[drf] to enable /api/v1/"
+            )
+
+        api_urlconfs = [
+            "wiregraph_apps.tenants.api.urls",
+            "wiregraph_apps.detection.api.urls",
+            "wiregraph_apps.egress.api.urls",
+            "wiregraph_apps.reporting.api.urls",
+        ]
+        broken: list[str] = []
+        for dotted in api_urlconfs:
+            try:
+                module = importlib.import_module(dotted)
+            except Exception as exc:
+                broken.append(f"{dotted} ({exc.__class__.__name__}: {exc})")
+                continue
+            if not hasattr(module, "urlpatterns"):
+                broken.append(f"{dotted} (no urlpatterns attribute)")
+
+        if broken:
+            return FAIL, "API urlconf failed to load: " + ", ".join(broken)
+        return OK, f"API extra installed; {len(api_urlconfs)} urlconf(s) resolve"

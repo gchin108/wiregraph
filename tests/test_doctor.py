@@ -122,3 +122,27 @@ def test_doctor_flags_unknown_sink_overrides():
     assert code == 1
     assert "SINK_OVERRIDES failed to resolve" in out
     assert "broken.example.com" in out
+
+
+@override_settings(
+    WIREGRAPH={"ENABLED": True},
+    MIDDLEWARE=GOOD_MIDDLEWARE,
+)
+def test_doctor_reports_api_extra_installed():
+    code, out, _ = _run()
+    assert "[FAIL]" not in out
+    assert "API extra installed" in out
+
+
+@override_settings(
+    WIREGRAPH={"ENABLED": True},
+    MIDDLEWARE=GOOD_MIDDLEWARE,
+)
+def test_doctor_reports_api_extra_missing(monkeypatch):
+    from wiregraph import _drf
+
+    monkeypatch.setattr(_drf, "drf_available", lambda: False)
+    code, out, _ = _run()
+    assert "[FAIL]" not in out
+    assert "API extra not installed" in out
+    assert "wiregraph[drf]" in out
