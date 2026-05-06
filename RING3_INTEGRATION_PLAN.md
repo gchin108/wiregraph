@@ -70,10 +70,16 @@ Extend the existing doctor command (ring 2 phase 5) with API-surface awareness.
 - Add `_check_api_extra`: detects whether DRF is importable; if so, asserts each `<app>/api/urls.py` resolves; if not, prints an info line ("API extra not installed — install wiregraph[drf] to enable /api/v1/").
 - **Done when:** `wiregraph_doctor` reports API status accurately in both extras-installed and base-only environments.
 
-### Phase 5 — Test matrix (1 day)
-- Add a tox/CI job that installs the base package without `[drf]` and runs a smoke test subset (middleware, persistence, admin dashboard view, doctor command). This is the regression guard for "did someone reintroduce a hard DRF import?"
-- Existing full suite continues to run with `[all]`.
-- **Done when:** CI has two columns — `base` and `all` — both green.
+### Phase 5 — Regression guard (0.5 day)
+Two complementary checks; phase 5 owns both.
+- **In-process** (runs inside the existing suite, no second tox column):
+  - `tests/test_no_drf/` with a conftest that hides `rest_framework` via `sys.modules`. Covers middleware, persistence, admin dashboard view, doctor command.
+  - `tests/test_imports.py` assertion: `import wiregraph_apps.detection.middleware` must not transitively import `rest_framework`.
+- **Packaging guard** (one minimal CI step in a clean venv) — catches what `sys.modules` patching can't see (a runtime dep accidentally left in base `dependencies`, namespace-package quirks, conditional imports gated on installed metadata):
+  - `pip install .` with no extras.
+  - `python manage.py check` against the test project.
+  - `python -c "import wiregraph_apps.detection.middleware; import wiregraph_apps.egress.interceptor"` — the eagerly-loaded hot-path modules, asserted against the real installed environment.
+- **Done when:** existing CI is green and the packaging guard step passes without DRF on the path.
 
 ### Phase 6 — Documentation & migration note (0.5 day)
 - README: install matrix table, when to pick which extra, dashboard-vs-API distinction.
@@ -81,11 +87,6 @@ Extend the existing doctor command (ring 2 phase 5) with API-surface awareness.
 - CHANGELOG / migration note — `get_current_tenant()` is no longer set on `/api/v1/` paths. `AUTO_EXCLUDE_API` (phase 3) skips the PII middleware for the API mount prefix, which means `set_current_tenant` is not called and `wiregraph_apps.common.tenancy.get_current_tenant()` returns `None` inside any view served under that prefix. Library DRF views are unaffected — they resolve via `TenantScopedMixin.get_tenant()` → `resolve_tenant(request)`, which works off `request.user` (set by `JWTAuthMiddleware` on every request, not gated by exclusion). Consumer-defined views mounted under `/api/v1/` that read the tenant ContextVar must switch to `resolve_tenant(request)`. Caught in the field by `django-demo/demo/views.py::egress_services`, which silently returned `[]` and broke the React dashboard's node graph.
 - `wiregraph_init` scaffolder: if it injects API URL patterns, gate that behind a `--with-api` flag.
 - **Done when:** a new consumer can read the README and pick the right install line on first try.
-
-## Tests
-- New `tests/test_no_drf/` directory with conftest that monkeypatches `sys.modules` to hide `rest_framework`; covers middleware, persistence, admin dashboard view, doctor.
-- Existing API tests stay put under `tests/test_api/` (or wherever they live), run only when DRF is installed.
-- Assertion in `tests/test_imports.py`: `import wiregraph_apps.detection.middleware` must not transitively import `rest_framework`.
 
 ## Rollback safety
 Phases 0–1 are additive. Phases 2–3 are the consumer-visible cut — land them together behind a single release. Phase 4–6 are additive polish. If the no-DRF install proves to break something we missed, reverting phase 3's URL guard restores prior behavior without code surgery.
@@ -105,6 +106,6 @@ Phases 0–1 are additive. Phases 2–3 are the consumer-visible cut — land th
 | 2. Move DRF into api/ packages | 1d | Yes (for phase 3) |
 | 3. Conditional URL inclusion | 0.5d | No |
 | 4. Doctor API check | 0.5d | No |
-| 5. No-DRF test matrix | 1d | No |
+| 5. Regression guard | 0.5d | No |
 | 6. Docs & migration note | 0.5d | No |
-| **Total** | **~4 days** | |
+| **Total** | **~3.5 days** | |

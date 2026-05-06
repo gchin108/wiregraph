@@ -46,3 +46,39 @@ def test_does_not_mutate_input():
     before = list(middleware)
     setup(middleware)
     assert middleware == before
+
+
+def test_include_jwt_false_omits_jwt_auth():
+    result = setup([DJANGO_AUTH], include_jwt=False)
+    assert JWT_AUTH not in result
+    assert result == [DJANGO_AUTH, PII_DETECTION]
+
+
+def test_include_jwt_false_strips_existing_jwt_entry():
+    # If a consumer flips include_jwt=False but JWT_AUTH is still in their
+    # list (e.g. left over from a previous DRF install), it must be removed.
+    result = setup([DJANGO_AUTH, JWT_AUTH], include_jwt=False)
+    assert JWT_AUTH not in result
+
+
+def test_include_jwt_true_forces_inclusion():
+    result = setup([DJANGO_AUTH], include_jwt=True)
+    assert result == [DJANGO_AUTH, JWT_AUTH, PII_DETECTION]
+
+
+def test_include_jwt_default_auto_detects(monkeypatch):
+    # When DRF is unavailable, the default (None) must skip JWT_AUTH.
+    monkeypatch.setattr(
+        "wiregraph._drf.drf_available", lambda: False, raising=True
+    )
+    result = setup([DJANGO_AUTH])
+    assert JWT_AUTH not in result
+    assert PII_DETECTION in result
+
+
+def test_include_jwt_default_includes_when_drf_available(monkeypatch):
+    monkeypatch.setattr(
+        "wiregraph._drf.drf_available", lambda: True, raising=True
+    )
+    result = setup([DJANGO_AUTH])
+    assert result == [DJANGO_AUTH, JWT_AUTH, PII_DETECTION]
