@@ -50,7 +50,8 @@ python manage.py migrate
 python manage.py wiregraph_doctor   # sanity-check config
 ```
 
-Hit any endpoint, then check `/api/v1/detection/events/`.
+Hit any endpoint, then open `/admin/wiregraph/dashboard/` to see the flow graph.
+(For the JSON API at `/api/v1/`, install `wiregraph[drf]` — see below.)
 
 > Wiregraph skips the Django admin URL prefix by default — otherwise the `DataEvent` admin would re-detect its own contents on refresh. Override with `AUTO_EXCLUDE_ADMIN=False`.
 
@@ -128,6 +129,8 @@ CELERY_BEAT_SCHEDULE = {**wg_celery.schedule(hour=3, minute=0)}
 
 ## API
 
+> Requires `pip install wiregraph[drf]`. Without the extra, `/api/v1/` routes are not registered.
+
 Versioned under `/api/v1/`, JWT `Bearer` auth (obtain via `/api/v1/auth/token/`). OpenAPI at `/api/v1/schema/`, Swagger at `/api/v1/schema/docs/`.
 
 | Method | Path | Description |
@@ -143,7 +146,7 @@ See [docs/settings.md](docs/settings.md) for all config keys.
 
 ## Requirements
 
-Python ≥ 3.10 · Django ≥ 5.0 · Celery + Redis (async detection) · PostgreSQL recommended
+Python ≥ 3.10 · Django ≥ 4.2 · Celery + Redis (async detection) · PostgreSQL recommended
 
 ## License
 
