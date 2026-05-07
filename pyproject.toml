@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
@@ -8,24 +8,32 @@ version = "0.1.0"
 description = "Runtime PII leak detector for Django — find personal data leaking from your API responses and third-party calls"
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 authors = [
-    { name = "Giorgio Chin"},
+    { name = "Giorgio Chin" },
 ]
+keywords = ["django", "pii", "privacy", "security", "data-loss-prevention", "compliance"]
 classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
     "Framework :: Django",
     "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: MIT License",
     "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
     "django>=4.2",
-    "django-cors-headers>=4.3",
-    "celery>=5.3",
-    "redis>=5.0",
-    "environs[django]>=11.0",
 ]
 
 [project.optional-dependencies]
@@ -34,10 +42,15 @@ drf = [
     "djangorestframework-simplejwt>=5.3",
     "drf-spectacular>=0.27",
 ]
+celery = [
+    "celery>=5.3",
+    "redis>=5.0",
+]
 postgres = [
     "psycopg[binary]>=3.1",
 ]
 presidio = [
+    "wiregraph[celery]",
     "presidio-analyzer>=2.2",
     "presidio-anonymizer>=2.2",
 ]
@@ -51,16 +64,27 @@ dev = [
     "factory-boy>=3.3",
     "coverage>=7.0",
     "responses>=0.25",
+    "django-cors-headers>=4.3",
+    "environs[django]>=11.0",
 ]
-all = ["wiregraph[drf,postgres,presidio,export,dev]"]
+all = ["wiregraph[drf,celery,postgres,presidio,export,dev]"]
 
 [project.urls]
-Homepage = "https://github.com/wiregraph/wiregraph"
-Documentation = "https://wiregraph.readthedocs.io"
+Repository = "https://github.com/gchin108/wiregraph"
+Issues = "https://github.com/gchin108/wiregraph/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/wiregraph", "src/wiregraph_apps", "src/wiregraph_core"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]
+
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings"
+testpaths = ["tests"]
 python_files = ["test_*.py"]

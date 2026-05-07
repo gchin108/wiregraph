@@ -59,8 +59,9 @@ Prefer a scaffolder? `python manage.py wiregraph_init --settings-file <path>` ap
 ## Requirements
 
 - Python 3.10+
-- Django 4.2+ or 5.x
-- Django REST Framework
+- Django 4.2, 5.0, 5.1, or 5.2
+- Django REST Framework *(optional — only required for the JSON API and JWT auth; install via `pip install 'wiregraph[drf]'`. The core scanning pipeline and bundled admin dashboard work without it.)*
+- Celery + a broker *(optional — only required for async Presidio scans and for scheduling the bundled purge task via Celery Beat; install via `pip install 'wiregraph[celery]'`. Synchronous regex scanning and the `wiregraph_purge` management command work without it.)*
 - A Django-supported database (PostgreSQL, MySQL, SQLite, or Oracle)
 - A tenant model. WireGraph is tenant-scoped by design — every event belongs to exactly one tenant. The default resolver walks `request.user.tenant_memberships`; see [Custom tenant resolution](#custom-tenant-resolution) if your model differs.
 
@@ -90,7 +91,7 @@ Quote `'wiregraph[presidio]'` — unquoted brackets get interpreted by the shell
 
 ## Settings reference
 
-`WIREGRAPH["ENABLED"]` is the **only required key**. Every other key has a sensible default. See [`docs/settings.md`](docs/settings.md) for the full table of 15 keys, types, and defaults.
+`WIREGRAPH["ENABLED"]` is the **only required key**. Every other key has a sensible default. See [settings.md](./settings.md) for the full table of 28 keys, types, and defaults.
 
 The ones you're most likely to touch:
 
@@ -172,27 +173,28 @@ POST /api/v1/detection/allowlist-rules/
 - `endpoint_prefix` — URL prefix; `"*"` for all endpoints.
 - `reason` — required for audit.
 
-Cache invalidation is automatic when rules change via the API. If you mutate rules directly in the DB, call `invalidate_tenant_rules(tenant)` from `wiregraph_apps.detection.allowlist`.
+Cache invalidation is automatic when rules change via the API. If you mutate rules directly in the DB, call `invalidate_tenant_rules(tenant)` from `wiregraph_apps.detection.adapters.allowlist`.
 
 ### Signal handlers
 
-Three signals are emitted:
+Four signals are emitted. **Prefer `event_classified` for alert routing** — it carries the confidence-gated `effective_level` so receivers don't have to recompute it. The others are kept for backwards compatibility and narrower use cases.
 
 | Signal | Fired when | Kwargs |
 |---|---|---|
-| `pii_detected` | Any `DataEvent` is created | `data_event`, `request` |
-| `new_data_asset_discovered` | A `DataAsset` is auto-created on first detection | `data_asset`, `tenant` |
-| `egress_pii_leak` | A `DataEvent` with `direction="egress"` is created | `data_event`, `external_service` |
+| `event_classified` | After classification on inbound *and* egress paths (recommended for alerts) | `data_event`, `external_service`, `effective_level`, `confidence`, `reason` |
+| `pii_detected` | After a `DataEvent` is persisted on inbound or async paths (not egress) | `data_event`, `request` |
+| `new_data_asset_discovered` | First time a given `DataAsset.name` is seen for a tenant | `data_asset`, `tenant` |
+| `egress_pii_leak` | A `prohibited` egress `DataEvent` is created | `data_event`, `external_service` |
 
 ```python
 from django.dispatch import receiver
-from wiregraph_apps.egress.signals import egress_pii_leak
+from wiregraph_apps.detection.signals import event_classified
 
-@receiver(egress_pii_leak)
-def alert(sender, data_event, external_service, **kwargs):
-    if data_event.confidence > 0.9:
+@receiver(event_classified)
+def alert(sender, data_event, external_service, effective_level, confidence, reason, **kwargs):
+    if effective_level == "prohibited":
         send_to_pagerduty(
-            summary=f"PII leak: {data_event.data_asset.name} → {external_service.domain}",
+            summary=f"PII leak: {data_event.data_asset.name} → {external_service.domain if external_service else 'inbound'}",
             severity="critical",
         )
 ```
@@ -230,7 +232,7 @@ python manage.py wiregraph_purge [--dry-run] [--batch-size N] [--retention-days 
 
 Respects `DATA_RETENTION_DAYS`. Deletes in batches to bound transactions.
 
-**Celery Beat** — merge the bundled schedule fragment:
+**Celery Beat** — requires `pip install 'wiregraph[celery]'`. Merge the bundled schedule fragment:
 
 ```python
 import wiregraph.celery as wg_celery
@@ -241,7 +243,7 @@ CELERY_BEAT_SCHEDULE = {
 }
 ```
 
-The task `wiregraph.celery.purge_expired_events` is registered automatically when `wiregraph_apps.reporting` loads, provided Celery is installed.
+The task `wiregraph.celery.purge_expired_events` is registered automatically when `wiregraph_apps.reporting` loads, provided Celery is installed. Without the `[celery]` extra, `wg_celery.schedule(...)` raises `RuntimeError` — use the `wiregraph_purge` management command from cron/systemd instead.
 
 ### Custom AdminSite
 
@@ -258,7 +260,7 @@ WIREGRAPH = {
 
 ## Troubleshooting
 
-Run `python manage.py wiregraph_doctor` first — it checks five common misconfigurations.
+Run `python manage.py wiregraph_doctor` first — it runs eight checks (enabled flag, tenant resolver, middleware order, egress patch state, `DataEvent` indexes, cache adapter, sink overrides, DRF API extra).
 
 | Symptom | Cause | Fix |
 |---|---|---|

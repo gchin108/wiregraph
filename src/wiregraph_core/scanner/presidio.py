@@ -35,7 +35,6 @@ _ENTITY_MAP = {
     "US_PASSPORT": "passport",
     "US_DRIVER_LICENSE": "drivers_license",
     "IP_ADDRESS": "ip_address",
-    "DATE_TIME": "date_time",
     "MEDICAL_LICENSE": "medical_license",
     "NRP": "nationality",
     "CRYPTO": "crypto_wallet",
@@ -43,8 +42,11 @@ _ENTITY_MAP = {
 
 # Presidio entities we suppress entirely. URL is noisy: it fires on email
 # domains, CDN/media links, map links, and any domain.tld substring in
-# descriptions — none of which are PII in typical threat models.
-_DROPPED_ENTITIES = frozenset({"URL"})
+# descriptions — none of which are PII in typical threat models. DATE_TIME
+# is dropped for the same reason: bare timestamps and durations ("10:15 UTC",
+# "42 seconds") are not PII on their own, and structured dates that matter
+# (DOB) are caught by the regex layer in context.
+_DROPPED_ENTITIES = frozenset({"URL", "DATE_TIME"})
 
 
 def _import_analyzer():
