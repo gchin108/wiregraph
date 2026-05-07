@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wiregraph"
-version = "0.1.0.post1"
+version = "0.1.0.post2"
 description = "Runtime PII leak detector for Django — find personal data leaking from your API responses and third-party calls"
 readme = "README.md"
 license = "MIT"
