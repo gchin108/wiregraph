@@ -32,6 +32,8 @@ APM tells you a request was slow. Logs tell you what you decided to log. Wiregra
 
 ## Quick start
 
+**1. Install and configure**
+
 ```bash
 pip install wiregraph
 ```
@@ -45,16 +47,30 @@ MIDDLEWARE = wiregraph.setup(MIDDLEWARE)
 WIREGRAPH = {"ENABLED": True}
 ```
 
+![Install and configure](demo.gif)
+
+**2. Migrate and attach a superuser to a tenant**
+
 ```bash
 python manage.py migrate
 python manage.py wiregraph_doctor   # sanity-check config
+
+# create a superuser if you don't already have one
+export DJANGO_SUPERUSER_PASSWORD=admin
+python manage.py createsuperuser --noinput --username admin --email a@a.com
 
 # attach your admin user to a tenant so events get attributed
 python manage.py shell -c "from django.contrib.auth import get_user_model; from wiregraph_apps.tenants.models import Tenant, TenantMembership; u = get_user_model().objects.filter(is_superuser=True).first(); t, _ = Tenant.objects.get_or_create(name='Demo Co', defaults={'slug': 'demo'}); TenantMembership.objects.get_or_create(user=u, tenant=t)"
 ```
 
+![Migrate and create tenant](demo2.gif)
+
+**3. Hit an endpoint and watch the leak**
+
 Hit any endpoint, then open `/admin/wiregraph/dashboard/` to see the flow graph.
 (For the JSON API at `/api/v1/`, install `wiregraph[drf]` — see below.)
+
+![PII leak in the dashboard](demo3.gif)
 
 > Wiregraph skips the Django admin URL prefix by default — otherwise the `DataEvent` admin would re-detect its own contents on refresh. Override with `AUTO_EXCLUDE_ADMIN=False`.
 
