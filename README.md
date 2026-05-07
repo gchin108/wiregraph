@@ -6,6 +6,10 @@ Most teams can't answer that. Your view returns more than you think. Your OpenAI
 
 Wiregraph is a **runtime PII leak detector** that sits inside your Django app and watches the traffic you're actually serving.
 
+![Wiregraph dashboard — live PII flow map](https://raw.githubusercontent.com/gchin108/wiregraph/main/.github/assets/dashboard.jpg)
+
+> **React dashboard — coming soon.** The screenshot above previews the standalone React dashboard (currently in development). The bundled Django admin dashboard at `/admin/wiregraph/dashboard/` ships today.
+
 ## The alarm moment
 
 A user hits `/api/v1/support/ticket/`. Your view enriches the response with an OpenAI summary. Wiregraph sees this:
@@ -47,7 +51,7 @@ MIDDLEWARE = wiregraph.setup(MIDDLEWARE)
 WIREGRAPH = {"ENABLED": True}
 ```
 
-![Install and configure](demo.gif)
+![Install and configure](https://raw.githubusercontent.com/gchin108/wiregraph/main/.github/assets/demo.gif)
 
 **2. Migrate and attach a superuser to a tenant**
 
@@ -63,14 +67,14 @@ python manage.py createsuperuser --noinput --username admin --email a@a.com
 python manage.py shell -c "from django.contrib.auth import get_user_model; from wiregraph_apps.tenants.models import Tenant, TenantMembership; u = get_user_model().objects.filter(is_superuser=True).first(); t, _ = Tenant.objects.get_or_create(name='Demo Co', defaults={'slug': 'demo'}); TenantMembership.objects.get_or_create(user=u, tenant=t)"
 ```
 
-![Migrate and create tenant](demo2.gif)
+![Migrate and create tenant](https://raw.githubusercontent.com/gchin108/wiregraph/main/.github/assets/demo2.gif)
 
 **3. Hit an endpoint and watch the leak**
 
 Hit any endpoint, then open `/admin/wiregraph/dashboard/` to see the flow graph.
 (For the JSON API at `/api/v1/`, install `wiregraph[drf]` — see below.)
 
-![PII leak in the dashboard](demo3.gif)
+![PII leak in the dashboard](https://raw.githubusercontent.com/gchin108/wiregraph/main/.github/assets/demo3.gif)
 
 > Wiregraph skips the Django admin URL prefix by default — otherwise the `DataEvent` admin would re-detect its own contents on refresh. Override with `AUTO_EXCLUDE_ADMIN=False`.
 
