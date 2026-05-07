@@ -48,6 +48,9 @@ WIREGRAPH = {"ENABLED": True}
 ```bash
 python manage.py migrate
 python manage.py wiregraph_doctor   # sanity-check config
+
+# attach your admin user to a tenant so events get attributed
+python manage.py shell -c "from django.contrib.auth import get_user_model; from wiregraph_apps.tenants.models import Tenant, TenantMembership; u = get_user_model().objects.filter(is_superuser=True).first(); t, _ = Tenant.objects.get_or_create(name='Demo Co', defaults={'slug': 'demo'}); TenantMembership.objects.get_or_create(user=u, tenant=t)"
 ```
 
 Hit any endpoint, then open `/admin/wiregraph/dashboard/` to see the flow graph.
