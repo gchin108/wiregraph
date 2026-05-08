@@ -6,7 +6,7 @@ Your view returns more than you think. Your OpenAI call ships customer emails to
 
 Wiregraph is a **runtime PII leak detector** that sits inside your Django app and watches the traffic you're actually serving — inbound, outbound, and egress to third parties.
 
-![PII leak in the dashboard](https://raw.githubusercontent.com/gchin108/wiregraph/main/.github/assets/demo3.gif)
+![PII leak in the dashboard](https://raw.githubusercontent.com/gchin108/wiregraph/main/.github/assets/demo4.gif)
 
 ## The alarm moment
 
@@ -22,6 +22,24 @@ A user hits `/api/v1/support/ticket/`. Your view enriches the response with an O
 ```
 
 You didn't write code to log that. You didn't know it was happening. Now you do.
+
+## Try the demo
+
+Want to see Wiregraph catch a leak without touching your own app?
+
+```bash
+git clone https://github.com/gchin108/wiregraph-django-demo.git
+cd wiregraph-demo
+docker compose up
+```
+
+Then in another terminal:
+
+```bash
+curl http://localhost:8000/demo/egress/openai/
+```
+
+Open `http://localhost:8000/admin/wiregraph/dashboard/` (login `demo` / `demo`) — you'll see the email and SSN that just got shipped to OpenAI.
 
 ## Why runtime detection?
 
