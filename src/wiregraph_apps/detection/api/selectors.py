@@ -15,12 +15,12 @@ from typing import Iterable
 
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Max, Min, QuerySet
-from django.db.models.functions import TruncHour
-
+from django.db.models.functions import TruncMinute
 from wiregraph_apps.detection.models import DataAsset, DataEvent
 
 OUTCOME_RANK = {"expected": 0, "acceptable": 1, "suspicious": 2, "prohibited": 3}
-SPARKLINE_WINDOW = timedelta(days=7)
+SPARKLINE_WINDOW = timedelta(hours=24)
+SPARKLINE_BUCKET_MINUTES = 30
 # All direction strings that represent traffic leaving the app. The interceptor
 # writes "egress" today; older rows and seed data carry "wiregraph_egress" or
 # "outbound". Treat all three as outbound for endpoint-node aggregation.
@@ -233,12 +233,33 @@ def _worst_outcome(outcomes: Iterable[str]) -> str:
 def _hourly_buckets(qs: QuerySet[DataEvent], *, end: datetime) -> list[HourBucket]:
     if end.tzinfo is None:
         end = end.replace(tzinfo=timezone.utc)
-    window_start = end - SPARKLINE_WINDOW
+    end_minute = end.replace(second=0, microsecond=0)
+    # Snap end down to a bucket boundary so the rightmost bar is "now" not partial.
+    snap = end_minute.minute - (end_minute.minute % SPARKLINE_BUCKET_MINUTES)
+    end_bucket = end_minute.replace(minute=snap)
+    window_start = end_bucket - SPARKLINE_WINDOW
+    bucket_size = timedelta(minutes=SPARKLINE_BUCKET_MINUTES)
+    # Aggregate per-minute in SQL — bounds the rowcount to at most one row
+    # per minute in the window (1440 for 24h) regardless of event volume.
+    # Snap minute → bucket in Python so the logic stays cross-DB.
     rows = (
         qs.filter(timestamp__gte=window_start)
-        .annotate(hour=TruncHour("timestamp"))
-        .values("hour")
+        .annotate(minute=TruncMinute("timestamp"))
+        .values("minute")
         .annotate(count=Count("id"))
-        .order_by("hour")
     )
-    return [HourBucket(hour=r["hour"], count=r["count"]) for r in rows]
+    counts: dict[datetime, int] = {}
+    for row in rows:
+        minute: datetime = row["minute"]
+        if minute.tzinfo is None:
+            minute = minute.replace(tzinfo=timezone.utc)
+        delta = minute - window_start
+        idx = int(delta.total_seconds() // (SPARKLINE_BUCKET_MINUTES * 60))
+        bucket_start = window_start + idx * bucket_size
+        counts[bucket_start] = counts.get(bucket_start, 0) + row["count"]
+    total_buckets = int(SPARKLINE_WINDOW.total_seconds() // 60 // SPARKLINE_BUCKET_MINUTES)
+    buckets: list[HourBucket] = []
+    for i in range(total_buckets + 1):
+        bucket = window_start + i * bucket_size
+        buckets.append(HourBucket(hour=bucket, count=counts.get(bucket, 0)))
+    return buckets
