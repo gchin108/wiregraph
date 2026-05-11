@@ -8,6 +8,7 @@ DEFAULTS = {
     "ENABLE_EGRESS_TRACKING": False,
     "DISABLE_EGRESS_PATCHING": False,
     "DATA_RETENTION_DAYS": 90,
+    "RETENTION_DAYS_EXPECTED": 14,
     "REDACT_STRATEGY": "hash",
     "ALERT_WEBHOOK_URL": None,
     "ALLOWLISTED_FIELDS": [],
@@ -40,6 +41,7 @@ class WiregraphSettings(TypedDict, total=False):
     ENABLE_EGRESS_TRACKING: bool
     DISABLE_EGRESS_PATCHING: bool
     DATA_RETENTION_DAYS: int
+    RETENTION_DAYS_EXPECTED: int
     REDACT_STRATEGY: str
     ALERT_WEBHOOK_URL: str | None
     ALLOWLISTED_FIELDS: list[str]
@@ -154,6 +156,16 @@ def get_confidence_thresholds() -> tuple[float, float]:
 
 def is_shadow_mode() -> bool:
     return bool(get_config("SHADOW_MODE"))
+
+
+def get_expected_retention_days() -> int:
+    """Retention for ``outcome="expected"`` events (allowlisted traffic).
+
+    Shorter than ``DATA_RETENTION_DAYS`` by default since allowlisted events
+    are high-volume baseline traffic kept only for audit / volume-anomaly
+    detection, not long-term forensics.
+    """
+    return int(get_config("RETENTION_DAYS_EXPECTED"))
 
 
 def get_dedup_windows() -> tuple[int, int]:

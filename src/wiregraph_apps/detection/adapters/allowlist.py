@@ -40,9 +40,12 @@ def _load_rules(tenant) -> list[Rule]:
             endpoint_prefix=ep or "",
             domain=d or "",
             domain_suffix=ds or "",
+            id=pk,
         )
-        for a, ep, d, ds in AllowlistRule.objects.filter(tenant=tenant).values_list(
-            "asset_name", "endpoint_prefix", "domain", "domain_suffix"
+        for pk, a, ep, d, ds in AllowlistRule.objects.filter(
+            tenant=tenant
+        ).values_list(
+            "id", "asset_name", "endpoint_prefix", "domain", "domain_suffix"
         )
     ]
     cache.set(key, rules, _RULES_CACHE_TTL)
@@ -69,3 +72,9 @@ def filter_matches(
     tenant, matches: Iterable[Match], endpoint: str, host: str = ""
 ) -> list[Match]:
     return _engine(tenant).filter_matches(matches, endpoint, host)
+
+
+def partition_matches(
+    tenant, matches: Iterable[Match], endpoint: str, host: str = ""
+) -> tuple[list[Match], list[tuple[Match, Rule]], list[Match]]:
+    return _engine(tenant).partition_matches(matches, endpoint, host)

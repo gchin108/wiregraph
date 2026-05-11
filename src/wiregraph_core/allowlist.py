@@ -25,6 +25,7 @@ class Rule:
     endpoint_prefix: str = ""
     domain: str = ""
     domain_suffix: str = ""
+    id: int | None = None
 
 
 def _host_matches_suffix(host: str, suffix: str) -> bool:
@@ -95,3 +96,29 @@ class AllowlistEngine:
             for m in matches
             if not self.is_allowlisted(m.asset_name, endpoint, host)
         ]
+
+    def partition_matches(
+        self, matches: Iterable[Match], endpoint: str, host: str = ""
+    ) -> tuple[list[Match], list[tuple[Match, Rule]], list[Match]]:
+        """Three-way split for persistence.
+
+        Returns ``(dropped, allowed, remaining)``:
+
+        * ``dropped`` — matches suppressed by the global field allowlist
+          (synthetic Rule with no domain/suffix/endpoint). Do not persist.
+        * ``allowed`` — matches that hit a real ``AllowlistRule``; persist
+          with ``outcome="expected"`` and the rule attached for audit.
+        * ``remaining`` — matches with no allowlist hit; classify normally.
+        """
+        dropped: list[Match] = []
+        allowed: list[tuple[Match, Rule]] = []
+        remaining: list[Match] = []
+        for m in matches:
+            rule = self.find_matching_rule(m.asset_name, endpoint, host)
+            if rule is None:
+                remaining.append(m)
+            elif not rule.domain and not rule.domain_suffix and not rule.endpoint_prefix:
+                dropped.append(m)
+            else:
+                allowed.append((m, rule))
+        return dropped, allowed, remaining

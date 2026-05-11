@@ -23,7 +23,7 @@ from typing import Iterable
 from django.db import transaction
 from django.utils import timezone
 
-from wiregraph_apps.detection.adapters.allowlist import filter_matches
+from wiregraph_apps.detection.adapters.allowlist import partition_matches
 from wiregraph_apps.detection.adapters.classifier import (
     apply_shadow_decision,
     classify_for_event,
@@ -53,18 +53,36 @@ def persist_matches(
     request=None,
     external_service=None,
 ) -> list[DataEvent]:
-    """Filter, coalesce by asset, and persist matches. Returns the created rows."""
+    """Partition, coalesce by asset, and persist matches. Returns the created rows.
+
+    Matches covered by an ``AllowlistRule`` are persisted with
+    ``outcome="expected"`` and the rule attached, but only if **every** match
+    for that asset in this request is covered — a mixed asset (some matches
+    allowlisted, some not) is classified normally so the rule can't mask a
+    partial leak.
+    """
     host = external_service.domain if external_service is not None else ""
-    filtered = filter_matches(tenant, list(matches), endpoint, host)
-    if not filtered:
+    dropped, allowed, remaining = partition_matches(
+        tenant, list(matches), endpoint, host
+    )
+    if not allowed and not remaining:
         return []
 
     coalesced: dict[str, list[Match]] = {}
-    for match in filtered:
+    allowlist_rule_ids: dict[str, int | None] = {}
+    has_remaining: dict[str, bool] = {}
+    for match in remaining:
         coalesced.setdefault(match.asset_name, []).append(match)
+        has_remaining[match.asset_name] = True
+    for match, rule in allowed:
+        coalesced.setdefault(match.asset_name, []).append(match)
+        # First rule wins as the audit reference for this asset.
+        allowlist_rule_ids.setdefault(match.asset_name, rule.id)
 
     new_assets: list[DataAsset] = []
     events: list[DataEvent] = []
+    fully_allowlisted: list[bool] = []
+    rule_ids_per_event: list[int | None] = []
     now = timezone.now()
 
     with transaction.atomic():
@@ -80,6 +98,11 @@ def persist_matches(
             if created:
                 new_assets.append(asset)
             first = asset_matches[0]
+            is_allowlisted = (
+                asset_name in allowlist_rule_ids
+                and not has_remaining.get(asset_name, False)
+            )
+            rule_id = allowlist_rule_ids.get(asset_name) if is_allowlisted else None
             events.append(
                 DataEvent(
                     tenant=tenant,
@@ -94,18 +117,29 @@ def persist_matches(
                     request_id=request_id,
                     timestamp=now,
                     match_count=len(asset_matches),
+                    allowlist_rule_id=rule_id,
                 )
             )
+            fully_allowlisted.append(is_allowlisted)
+            rule_ids_per_event.append(rule_id)
         created_events = DataEvent.objects.bulk_create(events)
 
-        for event in created_events:
-            try:
-                outcome, reason = classify_for_event(tenant, event, external_service)
-            except Exception:
-                logger.exception("wiregraph: classifier failed; leaving defaults")
-                continue
-            event.outcome = outcome
-            event.decision_reason = reason
+        for event, is_allowlisted, rule_id in zip(
+            created_events, fully_allowlisted, rule_ids_per_event
+        ):
+            if is_allowlisted:
+                event.outcome = "expected"
+                event.decision_reason = f"allowlist:{rule_id}"
+            else:
+                try:
+                    outcome, reason = classify_for_event(
+                        tenant, event, external_service
+                    )
+                except Exception:
+                    logger.exception("wiregraph: classifier failed; leaving defaults")
+                    continue
+                event.outcome = outcome
+                event.decision_reason = reason
             try:
                 apply_shadow_decision(event)
             except Exception:
@@ -139,14 +173,16 @@ def persist_egress_matches(
     ``json_path``), classifies, fires ``egress_pii_leak`` on prohibited.
 
     Caller (egress interceptor) is responsible for ``ExternalService``
-    upsert and for running ``filter_matches`` if it has already done so;
-    we re-filter defensively so this entry point is safe to call directly.
+    upsert and for running ``partition_matches`` if it has already done so;
+    we re-partition defensively so this entry point is safe to call directly.
     """
     from wiregraph_apps.egress.signals import egress_pii_leak
 
     host = external_service.domain if external_service is not None else ""
-    filtered = filter_matches(tenant, list(matches), endpoint, host)
-    if not filtered:
+    dropped, allowed, remaining = partition_matches(
+        tenant, list(matches), endpoint, host
+    )
+    if not allowed and not remaining:
         return []
 
     if now is None:
@@ -155,9 +191,13 @@ def persist_egress_matches(
     asset_cache: dict[str, DataAsset] = {}
     new_assets: list[DataAsset] = []
     created_events: list[DataEvent] = []
+    # (match, rule_id_or_None) — None means classify normally.
+    to_persist: list[tuple[Match, int | None]] = [
+        (m, None) for m in remaining
+    ] + [(m, rule.id) for m, rule in allowed]
 
     with transaction.atomic():
-        for match in filtered:
+        for match, rule_id in to_persist:
             asset = asset_cache.get(match.asset_name)
             if asset is None:
                 asset, created = DataAsset.objects.get_or_create(
@@ -184,22 +224,38 @@ def persist_egress_matches(
                 json_path=match.json_path or "",
                 request_id=request_id,
                 timestamp=now,
+                allowlist_rule_id=rule_id,
             )
-            try:
-                outcome, reason = classify_for_event(tenant, event, external_service)
-                event.outcome = outcome
-                event.decision_reason = reason
+            if rule_id is not None:
+                event.outcome = "expected"
+                event.decision_reason = f"allowlist:{rule_id}"
                 try:
                     apply_shadow_decision(event)
                 except Exception:
                     logger.exception("wiregraph: shadow decision failed")
                 DataEvent.objects.filter(pk=event.pk).update(
-                    outcome=outcome,
-                    decision_reason=reason,
+                    outcome=event.outcome,
+                    decision_reason=event.decision_reason,
                     shadow_alert_level=event.shadow_alert_level,
                 )
-            except Exception:
-                logger.exception("wiregraph: classifier failed on egress event")
+            else:
+                try:
+                    outcome, reason = classify_for_event(
+                        tenant, event, external_service
+                    )
+                    event.outcome = outcome
+                    event.decision_reason = reason
+                    try:
+                        apply_shadow_decision(event)
+                    except Exception:
+                        logger.exception("wiregraph: shadow decision failed")
+                    DataEvent.objects.filter(pk=event.pk).update(
+                        outcome=outcome,
+                        decision_reason=reason,
+                        shadow_alert_level=event.shadow_alert_level,
+                    )
+                except Exception:
+                    logger.exception("wiregraph: classifier failed on egress event")
             created_events.append(event)
 
     for asset in new_assets:

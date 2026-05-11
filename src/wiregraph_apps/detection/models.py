@@ -82,6 +82,14 @@ class DataEvent(TenantScopedModel):
         default="",
         help_text="Phase 2 shadow: level receivers *would* dispatch at under the new policy.",
     )
+    allowlist_rule = models.ForeignKey(
+        "AllowlistRule",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="data_events",
+        help_text="Allowlist rule that classified this event as 'expected', if any.",
+    )
 
     class Meta(TenantScopedModel.Meta):
         verbose_name = "Data Event"
