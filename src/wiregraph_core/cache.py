@@ -1,8 +1,8 @@
 """Cache contract for core modules that need short-lived counters.
 
-Phase 2 will replace direct ``django.core.cache`` calls in escalation/dedup
-with an injected implementation of :class:`CacheProtocol`. A Django-backed
-adapter will live in ``wiregraph_apps.detection.adapters.cache``.
+Escalation and dedup take an injected :class:`CacheProtocol` rather than
+reaching for ``django.core.cache`` directly. The Django-backed adapter lives
+in ``wiregraph_apps.detection.adapters.cache``.
 """
 
 from __future__ import annotations

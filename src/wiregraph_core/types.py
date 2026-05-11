@@ -1,9 +1,8 @@
 """Core dataclasses shared by detection scanners and the classifier.
 
 These are the wire types between framework-agnostic logic and any host
-(Django middleware today, FastAPI tomorrow). They duplicate names that still
-live in ``wiregraph_apps.detection`` until later phases migrate the call
-sites; the duplication is intentional for Phase 0 — see RING1_EXTRACTION_PLAN.md.
+(Django middleware today, FastAPI tomorrow). Hosts resolve their
+persistence-layer rows into these dataclasses before calling into core.
 """
 
 from __future__ import annotations
@@ -62,8 +61,8 @@ class Policy:
 class FlowHistory:
     """Caller-supplied history facts the pure classifier needs.
 
-    Phase 3 will move ``classify`` into core; for now this is the contract
-    the Django wrapper will populate from ``DataEvent.objects.filter(...)``.
+    The host populates this from its own store (e.g. ``DataEvent.objects.filter(...)``
+    in the Django adapter) before invoking :func:`classify`.
     """
 
     is_new_flow: bool = False

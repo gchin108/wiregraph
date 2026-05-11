@@ -1,8 +1,9 @@
 """Pure allowlist rule matching.
 
-Hosts pull rules from their store of choice (Django ORM today) and pass them
-in as :class:`Rule` instances; this module knows nothing about persistence or
-caching. Rule precedence (most → least specific) follows proposal §2:
+Hosts pull rules from their store of choice (the Django adapter reads from
+the ORM) and pass them in as :class:`Rule` instances; this module knows
+nothing about persistence or caching. Rule precedence (most → least
+specific) follows proposal §2:
 
     1. ``domain + endpoint_prefix``
     2. ``domain``
