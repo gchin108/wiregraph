@@ -58,16 +58,24 @@ export = [
     "reportlab>=4.0",
     "xhtml2pdf>=0.2",
 ]
+httpx = [
+    "httpx>=0.25",
+]
+aiohttp = [
+    "aiohttp>=3.9",
+]
 dev = [
     "pytest>=7.0",
     "pytest-django>=4.5",
     "factory-boy>=3.3",
     "coverage>=7.0",
     "responses>=0.25",
+    "respx>=0.21",
+    "aioresponses>=0.7",
     "django-cors-headers>=4.3",
     "environs[django]>=11.0",
 ]
-all = ["wiregraph[drf,celery,postgres,presidio,export,dev]"]
+all = ["wiregraph[drf,celery,postgres,presidio,export,httpx,aiohttp,dev]"]
 
 [project.urls]
 Repository = "https://github.com/gchin108/wiregraph"

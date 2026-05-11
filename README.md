@@ -177,7 +177,24 @@ Wiregraph ships in slices so you only pull in what you need.
 | `pip install wiregraph[presidio]` | ML-based detection. Also run `python -m spacy download en_core_web_lg`. |
 | `pip install wiregraph[export]` | PDF/JSON compliance reports. |
 | `pip install wiregraph[postgres]` | `psycopg[binary]` for Postgres backends. |
+| `pip install wiregraph[httpx]` | Egress interception for `httpx` (sync + async clients). |
+| `pip install wiregraph[aiohttp]` | Egress interception for `aiohttp.ClientSession`. |
 | `pip install wiregraph[all]` | Everything above plus dev tooling. |
+
+### Egress transport coverage
+
+Wiregraph monkey-patches outbound HTTP clients at app start so PII leaving via third-party calls is recorded the same way as response PII. `requests` is patched whenever it's importable; `httpx` and `aiohttp` are picked up automatically once their extras are installed.
+
+| Client | Patch target | Body shapes scanned |
+|---|---|---|
+| `requests` | `Session.send` | `bytes`, `str` (`MAX_BODY_SIZE` cap) |
+| `httpx` (sync) | `Client.send` | `bytes` |
+| `httpx` (async) | `AsyncClient.send` | `bytes` (recorder dispatched via `sync_to_async`) |
+| `aiohttp` | `ClientSession._request` | `json=`, `data=` (bytes/str/dict); streams and `FormData` get an `ExternalService` touch but no body scan |
+
+Raw sockets, `urllib3` direct, `http.client`, and gRPC are out of scope.
+
+Set `DISABLE_EGRESS_PATCHING=True` (via the `WIREGRAPH` settings dict) to bypass patching entirely — useful in tests that use `responses`/`respx`/`aioresponses` without our wrapper in the chain.
 
 If you skip `[drf]`, the `/api/v1/` routes are not registered — the admin dashboard still works.
 

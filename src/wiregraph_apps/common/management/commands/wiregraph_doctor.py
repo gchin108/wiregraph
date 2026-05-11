@@ -73,19 +73,19 @@ class Command(BaseCommand):
 
     def _check_egress_patch_state(self):
         from wiregraph_apps.common.conf import get_config
-        from wiregraph_apps.egress.interceptor import _patch_state
+        from wiregraph_apps.egress.interceptor import installed_transports
 
         enabled = get_config("ENABLE_EGRESS_TRACKING")
         disabled = get_config("DISABLE_EGRESS_PATCHING")
-        installed = _patch_state.get("installed", False)
+        transports = installed_transports()
 
         if not enabled:
             return OK, "egress tracking disabled (ENABLE_EGRESS_TRACKING=False)"
         if disabled:
             return WARN, "ENABLE_EGRESS_TRACKING=True but DISABLE_EGRESS_PATCHING=True"
-        if not installed:
-            return FAIL, "egress tracking enabled but patch not installed"
-        return OK, "egress patch installed"
+        if not transports:
+            return FAIL, "egress tracking enabled but no transports patched"
+        return OK, f"egress transports patched: {', '.join(transports)}"
 
     def _check_dataevent_indexes(self):
         from django.db import connection
